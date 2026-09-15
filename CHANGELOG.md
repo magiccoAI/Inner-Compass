@@ -25,7 +25,8 @@ core 与 final 仍各有 1/2 项失败，但**与 v5.50 完全一致**：core `E
 1. **去外部依赖**：删除 3 行 Google Fonts `<link>`，改纯系统字体栈（`Noto Sans SC, Microsoft YaHei, PingFang SC, system-ui`）→ 文件完全离线、零外部请求（顺手解决审计 PRIV-01 隐私项，也契合项目「单文件离线、无外部字体」硬约束）。
 2. **署名 / 许可收敛**：页脚移除 `ic-license-note` 许可行（原文「© 2026 Leah…非商业用途，转载/改编须注明作者·详见 LICENSE」）；作品署名与许可改由 ① 首页 `<meta author>` / `<meta copyright>` ② 仓库 `README.md` 的 License 段 ③ 仓库 `LICENSE` 文件 三处一致承担。
 3. **图标自包含**：favicon 改为内联 SVG data URI（🪐）；移除 `favicon.ico` / `apple-touch-icon.png` / `manifest.webmanifest` 三个外部引用 → GitHub Pages 部署后零 404。
-4. **仓库资产补齐**：新增根目录 `LICENSE`（CC BY-NC 4.0 中文条款）、`README.md`、`INNER_COMPASS_BUILD_LOG.md`（设计过程记录，README 已引用）；`canonical` 仍为 `https://YOUR_DOMAIN_HERE/...` 占位符，待上线时替换为真实仓库 URL。
+4. **仓库资产补齐**：新增根目录 `LICENSE`（CC BY-NC 4.0 中文条款）、`README.md`、`INNER_COMPASS_BUILD_LOG.md`（设计过程记录，README 已引用）。
+5. **发布文件名收敛（2026-09-15 后续）**：发布版文件名由 `最终公开版inner_compass_v5_optimized_v5.51.html` 重命名为仓库根 `index.html`（GitHub Pages 默认入口，省去长中文文件名）；`canonical` 同步改为 `https://magiccoai.github.io/Inner-Compass/`（Pages 根地址）。若未启用 Pages，该 canonical 不影响功能，启用后即为正确主 URL。
 
 ---
 
