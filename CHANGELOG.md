@@ -1,5 +1,27 @@
 # Inner Compass（内在罗盘）变更记录
 
+## v5.53（2026-09-24）— 开场白文案修订（首页 Poster 主标题 + 下载页主标题）【基于 v5.52】
+
+**产出**：`index.html`（仓库根，GitHub Pages 发布件）与 `download.html` **就地修订**（v5.52 基线由 git 提交 `69be5cc` 保留，另存字节备份 `_pre_v553_index.html` / `_pre_v553_download.html`）
+**配套脚本**：`_apply_v553_copy.py`（EOL-safe；index.html 5 处 / download.html 1 处锚点替换，每个锚点断言命中 1 次；写入后做「反向替换 → 与改前逐字节比对」自证）
+**验证**：`_verify_v553_copy.py`（**20 PASS / 0 FAIL**：反向替换后与 `HEAD` blob **逐字节一致**）+ `_shot_v553_copy.js`（puppeteer 真实浏览器，桌面 1440 / 移动 390，**18 PASS / 0 FAIL**）
+
+### 触发
+开场白「把人生问题，慢慢变成自己的语言」升级为更能说明产品动作的一句：从「把问题变成语言」推进为「整理线索 → 看见当前坐标」。
+
+### 改动（纯文案层 + 版本号，共 6 处）
+1. **首页 Poster 主标题**（`.poster-title`）：「把人生问题，慢慢变成自己的语言」→「慢慢整理自己的生活线索，看见自己的当前坐标。」
+2. **`download.html` 主标题**（`h1`）：同步为同一句，两处文案完全一致。
+3. **版本号 v5.52 → v5.53**：文件头注释 `Version:`（并新增一行 v5.53 说明）、`<meta name="description">`、`<meta name="version">`、页脚署名行。
+
+### 未动 / 非回归
+STATE_VERSION(7) / STORAGE_KEY / STEPS(7 阶段 18 题) / 每题 id·type·max / PM_ANCHORS / buildMapNodes / buildMapRelationships / Map·Record 呈现 / 自动保存 / Export(JSON·Markdown·PDF) / 加密备份 / 继续探索 / `.poster-title` 的 CSS（`max-width: 11ch`、`clamp(24px,4vw,38px)` 一律未动，未擅自改断行）。反向替换证明：两文件除上述 6 处外与 v5.52 逐字节相同。
+
+### 已知观感（未擅自动）
+主标题由 14 字增到 20 字，在 11ch 栏宽下桌面/移动均为 **4 行**（原 3 行），断行落在「…看见自己的当 / 前坐标。」——「当前」被拆行；实测 Poster 内无溢出、无裁切。如要按语义断行，需动 `max-width` 或加 `<br>`，属外观决策，留给作者定。
+
+---
+
 ## v5.52（2026-09-24）— 分发入口：独立下载页 + 「下载空白版」【基于 v5.51】
 
 **产出**：新增根目录 `download.html`（独立下载页，面向公众号读者）；`index.html` 总结视图新增「下载空白版」入口（不影响任何既有功能 / 数据结构 / 文案）。

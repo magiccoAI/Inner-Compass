@@ -2,9 +2,10 @@
 <!--
 Original work created by Leah / 公众号作者@D小调片段记录
 Project: Inner Compass (内在罗盘)
-Version: v5.52
+Version: v5.53
 Created: 2026
 Updated: 2026-09-24
+v5.53 (2026-09-24)：开场白文案修订——Welcome Poster 主标题与 download.html 主标题由「把人生问题，慢慢变成自己的语言」改为「慢慢整理自己的生活线索，看见自己的当前坐标。」；零结构 / 零字段 / 零 answer key / 零数据模型改动，STATE_VERSION 维持 7。
 v5.49 (2026-09-14)：内容层打磨三件事（标签上限一致性 + 完整记录导出 PDF + Phase 7 第二问文案）。① work_constraints（Phase 5 第二问，multitag）标签逻辑：预设与自定义本就共用同一个 question.max（合计计数），本版把「看起来也一致」补齐——hint 明确「预设词与自定义词一起计算，合计不超过 3 项」；新增 .tag-counter 实时计数器「已选 N / 3」；新增 .tag-overlimit 温和重选提示（旧存档越界时全部保留、绝不静默删除，提示「你之前选了 N 项，现在这题最多 3 项」，并在降到 ≤3 之前禁止继续添加）；选中数量达上限后，未选中的标签置灰并标 aria-disabled，预设与自定义两条路径统一给出「最多只能选择 N 项，可先取消一项再添加」（此前预设路径是静默无反应）。注意分工：core_values 仍是 valuesorter，越界走 v5.48 的一次性截断（无效状态自动修复）；work_constraints 的 max 曾是 5、后降为 3，第 4/5 项是用户在旧上限下真实选过的，故走温和重选（合法旧选额交还用户自己取舍）。② 「下载我的完整记录」由 Markdown 改为 PDF：本项目是单文件离线应用（无 CDN / 无第三方库 / 不内嵌字体），不手写 PDF（中文必须内嵌字体、体积不可行），改为新增 buildReportHTML() + exportReportPDF() 生成自包含 A4 打印视图（系统字体、真实中文、Compass Summary → Journey 记录 → 试过之后，与 exportMarkdown 同口径同覆盖），再触发浏览器原生打印，在打印对话框选「另存为 PDF」即得任何设备都能打开的 PDF；环境不支持打印时退回下载同内容的 .html，保证内容不丢。按钮文案改为「下载我的完整记录（PDF）」。高级导出里的「导出 Markdown 文本」与 exportMarkdown() 本体保持不变。③ Phase 7 第二问（experiment_action）文案微调：guide 改为「可以先试一次、做几天、找个人聊聊、观察一阵子」「尽量写具体一点：准备做什么，是试一次，还是持续一段时间」；脚手架第一个问题改为「它最小可以做到什么程度？是试一次、做几天，还是观察一段时间？」；第二个问题改为「回头看看前面写下的内容：它和哪些想法有点关系？」；4 条示例从提示词里拆成独立的示例块（新增可选字段 scaffold.examplesLabel / scaffold.examples，渲染层 .scaffold-examples-label），示例文字同步为「聊聊他的日常」。明确未改：STEPS 结构 / 阶段数 / 题目数 / id / type / max（work_constraints 仍 max:3、adaptability 仍 max:5、core_values 仍 max:5）、STATE_VERSION(7)、STORAGE_KEY、buildCompass / buildMapNodes / buildMapRelationships / findNodeRelations / PM_ANCHORS / PM_TRAILS、Map Mode 与 Record Mode 呈现、Insight（继续探索）/ 加密备份 / 导出 JSON / exportMarkdown() 本体 / Experiment Feedback 数据层。
 v5.48 (2026-09-14)：价值排序上限修复（一次性数据迁移）。修复「引导语写着最多 5 项、答案却出现 6 项」的错位：core_values 等 valuesorter 题的选额上限 UI 一直为 5（连点 6 个 chip 停在 5，历史 jsdom 已验证），但旧版存档 / 导入数据里可能残留超过上限的答案。新增 clampValueMaxSelections()，在 loadState() 与 applyImportedState() 两个入口把超过题目 max 的项截断到上限，只截断、不补充、不改顺序——保留用户自己排好的前 max 项（即此刻最看重的几项）；带幂等标记，正常路径只跑一次。零结构 / 零字段 / 零数据模型 / 零 state 改动：STATE_VERSION 维持 7，STORAGE_KEY / STEPS / 18 题 id 与每题 type·max / 6 个 PM_ANCHORS / buildMapNodes / buildMapRelationships / 地图呈现 / Record / Map / Insight / 加密备份 / 导出全部未动。
 v5.47 (2026-09-14)：Map Mode — Interactive Cartography（Motion Grammar 重构）。目标不是增加动画数量，而是把地图从「带动画的个人方向海报」升级成「会回应用户注意力的个人地图」。① P0 建立 4 个明确状态 Rest / Explore(Hover) / Focus / Detail(Clue)，不再让一切状态靠 opacity 完成：Rest = contour 96s 极慢极弱地形呼吸（无 dash movement / 无全局 parallax / 无粒子 / 无 glow）+ trail opacity .18 + anchor 完整可读；Explore = Local Attention Field（nearest 1 / 半径内 .90 / 半径外 .86），删除 v5.46 的全局 pointer parallax 与 `.is-hovering .pm-anchor{opacity:.62}`，pointer 只「改变这块地形的可见度」不移动地图；Anchor Hover 只做 marker 一次性 420ms 微动画 + 标题下划线轻微强化 + 真实 PM_TRAILS preview + 局部地形响应，绝不打开 Detail Panel；Focus = 一次明确的地图叙事（Step A 当前 rest→focus 0ms → Step B related 提升 130ms → Step C 真实 PM_TRAILS route reveal 780ms / 600–900ms 一次性 stroke-dashoffset 显现，完成后停止）。② P1 Trail Motion 分级：Rest .18 / Related .32 / Active .64，infinite `.pm-trail-current` 从 15s·.04 降为 26s·.022（环境层，不得成为第一眼感知的动画）。③ P1 Local Contour Response：`#pmFieldInk` userSpaceOnUse 径向渐变（cx/cy 跟随注意力中心）承担**局部加深**——Rest 时核心档与边缘档同值（墨色均匀，不存在「假的注意力中心」），只有注意力出现才把核心档由 .10 拉到 .14；半径外的退让交给 `.pm-contours` mask-image（--field-k 控制衰减 ≤14%，恰好等于地标 far 档 .86）。实测：注视处 1.40× / 半径外 0.86× / 整幅 ≈0.99×。几何与 dasharray 永不变动——注意力改变可见度，而不是整张地图同步运动。④ P2 Anchor 视觉语言继续去卡片化：marker 从 Rest 的小点（::after）在 Explore/Focus 展开成 crosshair（::before，一次性 pmMarkTick），标题下划线 scaleX 从 0→.45→1，Focus 时 marker 仅放大到 1.18（禁止 scale > 1.03 的卡片膨胀、大面积发光、强 shadow）。⑤ P2 Clue Layer 向 Field Note / Cartographic Annotation 靠拢：`NN / 地标名` → FIELD NOTE → 测绘分隔线 → 记录列表 → 底部「还有 N 条记录」；架构（.pm-clue-layer / 无 backdrop / 不移动 Anchor / 点击走既有 Detail Panel）一字节未动。⑥ P2 Map Intro 只留三句：顶部两句「这张图不替你决定方向。它只是把你刚才写下的线索放回同一张地图。」+ 一行阅读顺序（生活图景 → 价值 → 边界 → 工作 → 现实 → 尝试）+ 最下方极轻提示「移动鼠标探索 · 点击地标深入」。⑦ P2 Mobile 保持 Vertical Perceptual Field：IntersectionObserver 的进/出升级为「最靠近视口中心带」的 scroll proximity（当前 1 / 上下相邻 .90 / 其余 .88，从不低于 .88），marker 激活 + 路径注记轻微显现，不位移不缩放不自动播放；禁止 horizontal pan / drag-to-pan / desktop pointer parallax。⑧ Reduced Motion 关闭全部 contour 呼吸 / route reveal / marker / parallax / mask，完整保留 focus / related / hover 语义状态 / route visibility / clue layer / 可访问性焦点。零结构 / 零字段 / 零数据模型改动：STATE_VERSION 维持 7，STORAGE_KEY / STEPS / answer key / PM_ANCHORS / PM_TRAILS / buildMapNodes / buildMapRelationships / findNodeRelations / PM_TRAIL_SHAPE / PM_DENSITY / buildPerceptualModel / Record Mode / Detail Panel / Experiment Feedback / Export / 加密备份 / 继续探索 全部未动。
@@ -99,10 +100,10 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
 <head data-page-node-id="fsJHWicoCbU8EXL52OWWk8">
     <meta charset="UTF-8" data-page-node-id="o6k7vl6EEXyy6E8KBVVBbV">
     <meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="l34J60i0HpDC5pX2nzDAP9">
-    <meta name="description" content="内在罗盘 v5.52：一条更轻、更清晰、更可完成的自我探索 Journey。新增独立下载页与「下载空白版」入口，读者无需安装、浏览器打开即用；Map Mode 以 Contour Field 场域呈现你写下的线索，不替你下结论，只帮你看见自己写下的方向。" data-page-node-id="aqbMOwbMCxAwu7dNuKWGFD">
+    <meta name="description" content="内在罗盘 v5.53：一条更轻、更清晰、更可完成的自我探索 Journey。新增独立下载页与「下载空白版」入口，读者无需安装、浏览器打开即用；Map Mode 以 Contour Field 场域呈现你写下的线索，不替你下结论，只帮你看见自己写下的方向。" data-page-node-id="aqbMOwbMCxAwu7dNuKWGFD">
     <meta name="author" content="Leah / 公众号作者@D小调片段记录" data-page-node-id="AmW93bM1S5epwS8betUfsQ">
     <meta name="copyright" content="© 2026 Leah / 公众号作者@D小调片段记录. All rights reserved." data-page-node-id="GWB0buNZa2ESDHYRLlJ0Hg">
-    <meta name="version" content="v5.52" data-page-node-id="RmwIffWpkQilzimONxuS7W">
+    <meta name="version" content="v5.53" data-page-node-id="RmwIffWpkQilzimONxuS7W">
     <!-- 主题色会随亮/暗模式动态更新（见 setTheme） -->
     <meta name="theme-color" id="themeColorMeta" content="#f6f2eb" data-page-node-id="JE1p2dLsrY89y74ph79BPL">
     <link rel="canonical" href="https://magiccoai.github.io/Inner-Compass/" data-page-node-id="UDiTXY7L6TQDFqBW3PR3hk">
@@ -4590,7 +4591,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
                         <div class="poster-lines" data-page-node-id="aJTxz9goeHgCSgkqbeQsTM"></div>
                         <div class="poster-content" data-page-node-id="8mRmUUtgs3FoVPN3KHfBW2">
                             <div class="poster-label" data-page-node-id="YpQv2SF1VHQmaiHBYqjpvw">Personal Compass</div>
-                            <div class="poster-title" data-page-node-id="8PnyH4T4Vy6q2DYjfKL9B5">把人生问题，慢慢变成自己的语言</div>
+                            <div class="poster-title" data-page-node-id="8PnyH4T4Vy6q2DYjfKL9B5">慢慢整理自己的生活线索，看见自己的当前坐标。</div>
                         </div>
                     </div>
                     <div class="panel-list" data-page-node-id="EOGjbjUoqXhs2EkbY4aBzA">
@@ -10826,7 +10827,7 @@ Inner Compass 不是替填写者找到职业答案，而是让一个模糊的「
         document.addEventListener("DOMContentLoaded", init);
     </script>
     <footer class="page-footer" data-page-node-id="qI2TjVVR1ceVWvmJrsPltG">
-        <div data-page-node-id="gkdLI0X0LOfXzFfvDxNvjm">Created by Leah / 公众号<a href="https://mp.weixin.qq.com" target="_blank" rel="noopener" data-page-node-id="IHLdmqOo5L9rHtBJnIuMQ1">@D小调片段记录</a> · Inner Compass 内在罗盘 v5.52</div>
+        <div data-page-node-id="gkdLI0X0LOfXzFfvDxNvjm">Created by Leah / 公众号<a href="https://mp.weixin.qq.com" target="_blank" rel="noopener" data-page-node-id="IHLdmqOo5L9rHtBJnIuMQ1">@D小调片段记录</a> · Inner Compass 内在罗盘 v5.53</div>
         <div data-page-node-id="BTqcCM7Bu1caEvWSHLrHS3">所有数据仅保存在当前设备，不会上传至服务器。如在公共设备上使用，请勿留存私人记录。</div>
     </footer>
 </body>
