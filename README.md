@@ -111,7 +111,7 @@ Inner Compass 最开始并不是从「做一个问卷」开始的。
 
 # 一次 Journey 会经过什么
 
-当前公开版本为 **v5.51**，共 **7 个阶段、18 个问题**。
+当前公开版本为 **v5.52**，共 **7 个阶段、18 个问题**。
 
 ### 01 · 我想靠近的生活
 
@@ -315,7 +315,9 @@ Inner Compass 本身不会调用 AI API。你可以选择这次要带走哪些�
 
 如果你希望自己保存一份 Inner Compass，可以从 GitHub 下载项目。
 
-最简单的方法：
+**更简单的方式**：直接打开仓库里的 `download.html` 下载页，点「下载 Inner Compass」即可把一份空白的 `Inner Compass.html` 保存到本地，双击用浏览器打开就能用，无需安装。
+
+也可以从 GitHub 下载整个项目：
 
 1. 点击 **Code**
 2. 选择 **Download ZIP**
@@ -582,7 +584,7 @@ Inner Compass 当前是一个以 HTML 为核心的 Web 应用。
 
 # 当前版本
 
-**v5.51**
+**v5.52**
 
 Inner Compass 已经经历了多轮：
 

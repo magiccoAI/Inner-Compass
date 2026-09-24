@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="version" content="download-page">
+    <meta name="description" content="下载 Inner Compass（内在罗盘）——一份 reflection-first 的自我探索工具，无需安装，用浏览器打开即可使用，数据只保存在你的设备。">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%F0%9F%AA%90%3C/text%3E%3C/svg%3E">
+    <title>下载 Inner Compass · 内在罗盘</title>
+    <style>
+        :root {
+            --bg: #f6f2eb;
+            --panel: rgba(255, 255, 255, .78);
+            --ink: #1f2a24;
+            --ink-soft: #59655d;
+            --ink-faint: #6b756b;
+            --line: rgba(39, 58, 47, .12);
+            --accent: #1f5a45;
+            --accent-soft: rgba(31, 90, 69, .10);
+            --accent-strong: #174533;
+            --accent-warm: #8d6844;
+            --shadow-soft: 0 10px 28px rgba(24, 31, 27, .05);
+            --radius-lg: 22px;
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body { height: 100%; }
+
+        body {
+            margin: 0;
+            color: var(--ink);
+            font-family: "Noto Sans SC", "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+            line-height: 1.72;
+            background:
+                radial-gradient(circle at 8% 8%, rgba(97, 144, 118, .14), transparent 28rem),
+                radial-gradient(circle at 92% 0%, rgba(188, 149, 105, .12), transparent 22rem),
+                linear-gradient(180deg, var(--bg) 0%, #fbf8f2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 28px;
+        }
+
+        .card {
+            width: min(560px, 100%);
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-soft);
+            padding: clamp(28px, 4vw, 44px);
+            text-align: center;
+            backdrop-filter: blur(18px);
+        }
+
+        .mark {
+            width: 56px;
+            height: 56px;
+            border-radius: 18px;
+            display: grid;
+            place-items: center;
+            font-size: 28px;
+            margin: 0 auto 18px;
+            background: linear-gradient(135deg, var(--accent), #2a6b52);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25);
+        }
+
+        .eyebrow {
+            font-size: 12px;
+            letter-spacing: .18em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin: 0 0 10px;
+        }
+
+        h1 {
+            font-size: clamp(22px, 4vw, 28px);
+            margin: 0 0 14px;
+            line-height: 1.3;
+        }
+
+        .lead {
+            color: var(--ink-soft);
+            font-size: 15px;
+            margin: 0 auto 22px;
+            max-width: 42ch;
+        }
+
+        .points {
+            text-align: left;
+            margin: 0 auto 26px;
+            max-width: 42ch;
+            padding: 0;
+            list-style: none;
+            display: grid;
+            gap: 10px;
+        }
+
+        .points li {
+            display: flex;
+            gap: 10px;
+            color: var(--ink-soft);
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .points li::before {
+            content: "·";
+            color: var(--accent);
+            font-weight: 800;
+            flex: none;
+        }
+
+        .actions {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .primary-btn {
+            border: none;
+            background: var(--accent);
+            color: #fff;
+            font-size: 16px;
+            font-weight: 600;
+            padding: 14px 26px;
+            border-radius: 999px;
+            cursor: pointer;
+            width: 100%;
+            max-width: 320px;
+            box-shadow: 0 10px 28px rgba(24, 79, 58, .18);
+            transition: background .2s ease, transform .2s ease;
+        }
+
+        .primary-btn:hover { background: var(--accent-strong); transform: translateY(-1px); }
+        .primary-btn:disabled { opacity: .6; cursor: default; transform: none; }
+
+        .ghost-btn {
+            border: 1px solid var(--line);
+            background: transparent;
+            color: var(--ink);
+            font-size: 14px;
+            padding: 10px 18px;
+            border-radius: 999px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: border-color .2s ease, color .2s ease;
+        }
+
+        .ghost-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        .note {
+            margin: 24px auto 0;
+            font-size: 12.5px;
+            color: var(--ink-faint);
+            max-width: 44ch;
+        }
+
+        .status {
+            margin: 18px auto 0;
+            max-width: 46ch;
+            font-size: 13px;
+            line-height: 1.62;
+            padding: 12px 14px;
+            border-radius: 14px;
+            border: 1px solid var(--line);
+            background: var(--accent-soft);
+            color: var(--ink-soft);
+            text-align: left;
+        }
+
+        .status-ok { border-color: rgba(31, 90, 69, .30); }
+
+        .status-warn {
+            background: rgba(141, 104, 68, .10);
+            border-color: rgba(141, 104, 68, .32);
+            color: var(--accent-warm);
+        }
+
+        [hidden] { display: none !important; }
+
+        .sr-only {
+            position: absolute;
+            width: 1px; height: 1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+        }
+
+        #toast {
+            position: fixed;
+            left: 50%;
+            bottom: 28px;
+            transform: translateX(-50%) translateY(20px);
+            background: var(--ink);
+            color: #fff;
+            padding: 10px 18px;
+            border-radius: 999px;
+            font-size: 14px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .25s ease, transform .25s ease;
+            z-index: 50;
+        }
+
+        #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #111714;
+                --panel: rgba(20, 28, 23, .9);
+                --ink: #edf2ee;
+                --ink-soft: #b4c0b7;
+                --ink-faint: #8a968e;
+                --line: rgba(215, 230, 220, .10);
+                --accent: #77bf9a;
+                --accent-soft: rgba(119, 191, 154, .13);
+                --accent-strong: #9ad8b8;
+                --accent-warm: #d0a778;
+                --shadow-soft: 0 10px 28px rgba(0, 0, 0, .22);
+            }
+            body {
+                background:
+                    radial-gradient(circle at 8% 8%, rgba(97, 144, 118, .18), transparent 28rem),
+                    radial-gradient(circle at 92% 0%, rgba(188, 149, 105, .14), transparent 22rem),
+                    linear-gradient(180deg, var(--bg) 0%, #0e1310 100%);
+            }
+            .primary-btn { color: #08130d; }
+            #toast { background: #edf2ee; color: #08130d; }
+        }
+    </style>
+</head>
+<body>
+    <main class="card">
+        <div class="mark" aria-hidden="true">🪐</div>
+        <p class="eyebrow">Inner Compass · 内在罗盘</p>
+        <h1>把人生问题，慢慢变成自己的语言</h1>
+        <p class="lead">一份 reflection-first 的自我探索工具。下载后无需安装，用浏览器打开就能用。</p>
+        <ul class="points">
+            <li>无需安装：下载得到的是一个 HTML 文件，双击用浏览器打开即可开始。</li>
+            <li>数据只保存在你当前的设备与浏览器里，不会上传到任何服务器。</li>
+            <li>随时回来继续：你写下的内容都留在这台设备上，下次打开还在。</li>
+        </ul>
+        <div class="actions">
+            <button class="primary-btn" id="downloadBtn" type="button">下载 Inner Compass</button>
+            <a class="ghost-btn" href="index.html" target="_blank" rel="noopener">在线打开</a>
+        </div>
+        <p class="status" id="status" hidden></p>
+        <a class="ghost-btn" id="saveLink" href="index.html" download="Inner Compass.html" hidden style="margin: 4px auto 0;">尝试另存为文件</a>
+        <p class="note">「下载 Inner Compass」会把一份空白的 Inner Compass 保存到你的设备；它与你在浏览器里已经填写的内容互不影响。</p>
+    </main>
+
+    <div class="sr-only" id="liveRegion" aria-live="polite"></div>
+    <div id="toast" role="status"></div>
+
+    <script>
+        (function () {
+            function showToast(msg) {
+                var t = document.getElementById("toast");
+                if (!t) return;
+                t.textContent = msg;
+                t.classList.add("show");
+                clearTimeout(t._timer);
+                t._timer = setTimeout(function () { t.classList.remove("show"); }, 2600);
+            }
+
+            function showStatus(msg, kind) {
+                var s = document.getElementById("status");
+                if (!s) return;
+                s.textContent = msg;
+                s.className = "status" + (kind ? " status-" + kind : "");
+                s.hidden = false;
+            }
+
+            function downloadFile(content, filename, mime) {
+                var blob = new Blob([content], { type: mime });
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement("a");
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+            }
+
+            var btn = document.getElementById("downloadBtn");
+            var isFileProtocol = location.protocol === "file:";
+
+            // 本地双击（file://）打开时，浏览器会禁止 fetch 读取同文件夹文件，
+            // 因此无法自动触发下载。这里给出明确说明，并露出一条浏览器原生的
+            // 保存/打开入口，交给用户自己选择，避免悄悄跳转页面。
+            function handleFileProtocol() {
+                showStatus(
+                    "你正以本地文件方式打开本页。出于浏览器安全限制，它无法直接生成文件下载。" +
+                    "请选择：① 点「在线打开」立即使用（推荐）；② 点下方「尝试另存为文件」——Firefox 会下载，Chrome 会直接打开文件，都可用。",
+                    "warn"
+                );
+                var save = document.getElementById("saveLink");
+                if (save) save.hidden = false;
+            }
+
+            if (btn) {
+                btn.addEventListener("click", function () {
+                    if (isFileProtocol) {
+                        handleFileProtocol();
+                        return;
+                    }
+                    btn.disabled = true;
+                    var label = btn.textContent;
+                    btn.textContent = "正在准备…";
+                    fetch("index.html", { cache: "no-store" })
+                        .then(function (response) {
+                            if (!response.ok) throw new Error("HTTP " + response.status);
+                            return response.text();
+                        })
+                        .then(function (html) {
+                            downloadFile(html, "Inner Compass.html", "text/html;charset=utf-8");
+                            btn.disabled = false;
+                            btn.textContent = label;
+                            showStatus("已开始下载 Inner Compass.html（空白版），请留意浏览器的下载提示。", "ok");
+                            showToast("已开始下载 Inner Compass.html");
+                        })
+                        .catch(function (err) {
+                            console.warn("blank version download failed", err);
+                            btn.disabled = false;
+                            btn.textContent = label;
+                            showStatus("暂时无法下载文件，正在为你打开在线版…", "warn");
+                            showToast("下载遇到问题，正在为你打开在线版…");
+                            window.open("index.html", "_blank", "noopener");
+                        });
+                });
+            }
+        })();
+    </script>
+</body>
+</html>

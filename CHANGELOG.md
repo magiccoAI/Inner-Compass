@@ -1,5 +1,22 @@
 # Inner Compass（内在罗盘）变更记录
 
+## v5.52（2026-09-24）— 分发入口：独立下载页 + 「下载空白版」【基于 v5.51】
+
+**产出**：新增根目录 `download.html`（独立下载页，面向公众号读者）；`index.html` 总结视图新增「下载空白版」入口（不影响任何既有功能 / 数据结构 / 文案）。
+
+### 触发
+为普通公众号读者提供更顺手的获取入口，让「拿到一份空白 Inner Compass」与「导出我自己的记录」在文案上明确分开。
+
+### 改动（3 处，全部局部 / 不碰信息架构）
+1. **新增 `download.html`**：复制 `index.html` 的设计令牌与系统字体栈，暖白底 + 绿色主按钮 + 🪐 标识，简洁克制（非软件下载站风格）。主按钮「下载 Inner Compass」→ `fetch('index.html')` → 下载为 `Inner Compass.html`；「在线打开」链接返回正式版；明确说明无需安装、浏览器直接打开、数据只保存在当前设备；含暗色适配；无 CDN / 第三方 / 后端；内联 favicon。
+2. **`index.html` 总结操作栏新增「下载空白版」**：放在现有 `下载我的完整记录（PDF）` 与 `🔒 加密保存` 之后，文案与「导出我的记录」明确区分；点击下载当前正式版 HTML（重命名为 `Inner Compass.html`），**不动 / 不覆盖 / 不清空用户 localStorage**。
+3. **下载失败兜底**：`download.html` 与「下载空白版」均复用通用 `downloadFile()`；`fetch` 失败时给出可见状态提示而非空白页——`download.html` 在 `file://` 本地双击场景下显式说明并用原生保存链接兜底（浏览器禁止 `file://` 读取同目录文件，属安全限制，非缺陷），线上 `https` 一键下载正常。
+
+### 未动 / 非回归
+STATE_VERSION(7) / STORAGE_KEY / STEPS(7 阶段 18 题) / 每题 id·type·max / PM_ANCHORS / buildMapNodes / Map·Record 呈现 / 自动保存 / JSON·Markdown·PDF 导出 / 加密备份 / 继续探索 / 文案。所有既有功能与设计零改动。
+
+---
+
 ## v5.51（2026-09-14）— 发布审计缺陷修复（BUG-01 P1 + 4 项 a11y）【基于 v5.50】
 
 **产出**：`最终公开版inner_compass_v5_optimized_v5.51.html`（v5.50 原封不动，作为被审计基线保留）
