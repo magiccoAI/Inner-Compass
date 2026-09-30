@@ -1,6 +1,138 @@
 # Inner Compass（内在罗盘）变更记录
 
-## v5.68（2026-09-30）— 顶栏改回静态页头（随页面滚出视野，不再吸顶）【当前活动基】
+## v5.71（2026-09-30）— 深读面板可读性 + 段落节奏 + 思源宋体（纯系统字体栈）【当前活动基】
+
+**性质**：**只改 CSS 声明**——零 DOM / 零 JS / 零数据 / 零结构改动（`_verify_v571_reverse_diff.py` 逐字节证明 `<style>` 之外 487KB 完全相同）。
+**产出**：`最终公开版inner_compass_v5_optimized_v5.71.html`（v5.70 原件保留，版本链不覆盖）。**尚未同步发布件**。
+
+### 触发（三项）
+1. Leah 想试 **思源宋体**（开源字体）；
+2. 「深入阅读」侧栏里 `工作节奏 / 工作地点` 这类**非用户填写的栏位名**看起来发虚（对比度 / 辨识度不足）；
+3. 调整**段落与分割线之间的 spacing**，让阅读体验更好。
+
+### 诊断
+- **发虚三因叠加**：`.fn-field` / `.fn-item-head` 是 11px 小字号 + `--ink-faint` 低对比（实测 4.72:1，仅过 AA）+ `letter-spacing: .12em` 字距过散。三者叠加在小屏全宽长文里尤其糊。
+- **字体可行性**：本机 `Noto Serif SC` 以**可变字体**安装（`NotoSerifSC-VF.ttf`，24MB，字重轴完整）→ 纯系统字体栈即可真渲染思源宋体，**零外链、零下载，不破坏 single-file / offline 叙事**（延续 v5.70 口径）。
+
+### 改动（CSS 声明级）
+1. **字体变量**：新增 `--font-sans` / `--font-serif`。展示层应用衬线 —— `.poster-title`、`.hero h1`、`.compass-detail-head h3`；**正文 / UI / 用户自己写的字仍是无衬线**（字体按语义分层，不改内容观感）。
+2. **栏位名可读性**：`.fn-item-head` 11px→**13px**、字重 400→**600**、字距 1.32px→**0.65px**、`margin-bottom` 3→7px；`.fn-field` / `.fn-rank` 墨色由 `--ink-faint` 改为深色 → **对比度 4.72:1 → 12.08:1（AAA）**。
+3. **副标签**：`.fn-sub-label` 10.5px→**12px**、字重 600、字距 `.18em`→收敛、颜色改高对比。
+4. **段落 / 分割线节奏**：`.fn-body` gap 14→**24px**；`.fn-group + .fn-group` `padding-top` 12→**18px**（分割线上下留白）；`.fn-question` 12.5→13.5px / `line-height:1.7` / `margin-bottom` 7→**12px**；`.fn-item + .fn-item` 10→**14px**。
+5. **版本号元数据一致化**：文件头 `Version:` / banner「→ v5.71 最终版」/ `<meta name="description">` / `<meta name="version">` / 页脚署名行 全部对齐 v5.71。（顺带修正 **v5.70 的遗留**：其文件头 `Version:` 当时漏改、仍写 v5.69；v5.71 一并补齐。）
+
+### 验证（真浏览器，本机 Chrome 131 headless）
+- `_verify_v571_panel.js`：**22 PASS / 0 FAIL** —— 含栏位名 13px/600/0.65px、对比度 12.08:1、分割线 solid 1px、实测空袭 题签→栏位名 12px / 栏位名→正文 7px / 条目间 14px / 组间 42px、窄屏 395px 面板全宽。
+- **字体像素指纹**：`Noto Serif SC` 指纹 ≠ 不存在字体（真命中）、≠ SimSun（未回退 Windows 宋体）、≠ 无衬线（两套字体）。展示层 = Serif，正文/提问/栏位名 = Sans 全部核对通过。
+- `_verify_v571_reverse_diff.py`（**反向替换法**）: **19 PASS / 0 FAIL** —— 把 v5.71 样式块之外的文本按 5 处版本号元数据反向替换、并删掉新增说明行后，与 v5.70 **逐字节相同（487541 B == 487541 B）** ⇒ 除版本号外，HTML 结构 / DOM id / JS / STEPS 数据 / 注释一个字节未动。（此法比逐行 diff 白名单稳：difflib 的行对齐会把「插入 1 行」显示成一大片删+增；且样式块定位必须从 `<meta name="version">` 之后起找，否则会被头部注释里散文提及的 `style` 字样误导。）
+- **断行契约量测**（`_probe_v571_poster_font.js` / `_probe_v571_display_font.js`）：`.poster-title` 的 `11ch` 在宋体下每行像素宽与无衬线**完全相同**（228/228/228/152）、10 档宽度一律 **4 行** ⇒ 契约未破坏；`.hero h1` 保留 `-.04em` 负字距（若归零反而退化成 4 行），10 档一律 3 行。
+
+### 字体对照实验件（未落地，待 Leah 选范围）
+- `_exp_v571_font_A_sans.html` = 现有观感（展示层退回无衬线，等同 v5.70）
+- `_exp_v571_font_B_display_serif.html` = **v5.71 实发**（仅展示层宋体）
+- `_exp_v571_font_C_full_serif.html` = 全文宋体（`--font-sans` 亦指向思源宋体）
+
+### 待决 / 未做
+- **字体范围**待 Leah 拍板：B（展示层，已落地）／C（全文）。切换成本约 1 处变量。
+- **发布未做**：本轮只出源文件，未跑发布收敛（index.html / download.html 仍停在 v5.70）。Leah 确认字体范围后再一次性同步发布。
+
+---
+
+## v5.70（2026-09-30）— Launch 前发布收敛：离线叙事统一 + 错误处理分层 + 死链清理
+
+**发布口径**：发布收敛脚本 `_sync_release_v570.py` 把本版源文件整文件复制进 `index.html` 并替换 canonical 占位符；`download.html` 仅同步 meta 版本号（v5.69 → v5.70）。改动前落字节备份 `_pre_v570_index.html` / `_pre_v570_download.html`。
+**产出**：`最终公开版inner_compass_v5_optimized_v5.70.html`（v5.69 原件保留，版本链不覆盖）。
+
+### 本次改动（对应 Launch 检查清单）
+1. **canonical 占位符替换**：`index.html` 发布时 `YOUR_DOMAIN_HERE` → `https://magiccoai.github.io/Inner-Compass/`（源文件保留占位符，由同步脚本替换）。
+2. **清理可见过时术语**：移除详情面板 kicker `Field Note` 与进度抽屉 eyebrow `Journey Overview`（其下方标题已是中文「填写进度」）；代码注释中的历史提及保留。
+3. **统一 single-file / offline 叙事**：移除 Google Fonts CDN（`fonts.googleapis.com` / `fonts.gstatic.com` 两处 `<link>`），改纯系统字体栈（PingFang SC / 微软雅黑 / system-ui），并更新字体注释。
+4. **PWA / 死链清理**：移除 `serviceWorker.register("sw.js")` 死调用（线上无 sw.js，一直 404 静默失败）；源文件已无 `favicon.ico` / `apple-touch-icon.png` / `manifest.webmanifest` 死链，发布件不再引用；favicon 以内联 🪐 data-URI 提供，无外部请求。结论：**本项目不提供 PWA**（单文件离线应用，按设计）。
+5. **PDF 打印异常 fallback（🟠）**：`exportReportPDF` 的 `fire()` 在 `win.print()` 抛错时也退回下载同内容 HTML（此前仅 `!canPrint` 分支会降级），并提示「打印暂不可用，已改为下载 HTML 文件…」。
+6. **localStorage 异常不再一律说空间不足（🟠）**：`saveState` 捕获分支区分 `QuotaExceededError`（含 code 22 / 1014）→「保存失败：浏览器本地存储空间不足…」；其他（如浏览器禁用本地存储）→「保存失败：当前浏览器未允许本地保存，请使用加密保存或高级导出」。
+
+### 验证
+- 发布件 grep 校验：无 `YOUR_DOMAIN_HERE`、无 `fonts.googleapis.com`、无 `serviceWorker/sw.js`、无 `favicon.ico/apple-touch-icon.png/manifest.webmanifest`、无可见 `Field Note`/`Journey Overview`；错误文案与打印 fallback 已落地。
+- 部署（GitHub Pages push）由用户在本地终端执行；推送后需对真 URL 重跑 smoke test。
+
+## v5.69（2026-09-30）— Welcome 海报主标题文案追回（修一次「分叉丢改动」）
+
+**已发布**：仓库 `index.html`（GitHub Pages）已同步至本版（2026-09-30）；`download.html` 的 meta 版本同步为 v5.69（其主标题本就是新句，无需改动）。
+
+**产出**：`最终公开版inner_compass_v5_optimized_v5.69.html`（v5.68 原件保留，版本链不覆盖）
+**配套脚本**：`_apply_v569_patch.py`（7 处 op，每处断言锚点唯一，含 EOL 探测与前置守卫）；`_sync_release_v569.py`（发布收敛：canonical 还原 + 剔 3 条 dev-only 死链 + download 版本号，改动前落字节备份 `_pre_v569_index.html` / `_pre_v569_download.html`）
+**验证**：`_verify_v569.js` **68 PASS / 0 FAIL**（A 反向替换逐字节证明 + B 发布件一致性 + C 真浏览器 3 视口 + 数据层投影对比）；`_shot_v569_wrap_exp.js` / `_shot_v569_out/对照_v568_vs_v569_vs_实验.html` 提供前后与备选对照截图
+
+### 触发（用户报告）
+「开场说明里的海报标题，不是已经改成『慢慢整理自己的生活线索，看见自己的当前坐标。』了吗？为什么 v5.68 这个最新版又变回『把人生问题，慢慢变成自己的语言』了？」
+
+### 根因：不是有人撤回，是 **v5.56 分叉时丢掉了**（分叉丢改动）
+
+| 时间 | 事件 | 海报标题 |
+|---|---|---|
+| 09-24 | **v5.53**（git `8ea513a`）改文案，**只就地写进 `index.html` + `download.html`，未产出带版本号的源文件** | 新句 ✅ |
+| 09-24 | v5.54 / v5.55 从 GitHub main（`index.html`=v5.53）拉取后就地改 | 新句仍在 ✅ |
+| 09-28 | **v5.56「相机升正式」从 `v5.50_camera_map_experiment` 出发** —— 分叉点早于 v5.53 | **新句丢失** ❌ |
+| 09-28～09-30 | v5.57 → v5.67 → v5.68 全部继承 v5.56 | 旧句 ❌ |
+| 09-30 | **v5.68 发布**（git `5edfda4`）把 v5.68 源文件整文件复制进 `index.html` | 旧句写回线上 ❌ |
+
+**直接后果（真实缺陷）**：`index.html`（问卷本体）显示旧句、`download.html`（下载页）显示新句 —— 两个已发布页面文案自相矛盾。v5.68 那次同步只更新了 download.html 的 `meta` 版本号、没碰主标题，新句因此「幸存」，也正是本轮定位的入口。
+
+### 改动（7 处，全部文案 / 版本号层）
+
+| # | 位置 | 改动 |
+|---|---|---|
+| 1 | 文件头首行 | `→ v5.68 最终版` → `→ v5.69 最终版`，并写明本次追回 |
+| 2 | 文件头 `Version:` | `v5.68` → `v5.69` |
+| 3 | 文件头变更说明 | 新增 v5.69 一行（记录缺陷与根因） |
+| 4 | `<meta name="description">` | `内在罗盘 v5.68：` → `v5.69：` |
+| 5 | `<meta name="version">` | `v5.68` → `v5.69` |
+| 6 | 页脚署名行 | `Self Discovery Framework v5.68` → `v5.69` |
+| 7 | `.poster-title` 文本 | `把人生问题，慢慢变成自己的语言` → **`慢慢整理自己的生活线索，看见自己的当前坐标。`** |
+
+**`.poster-title` 的 CSS 一字未动**（`max-width:11ch` / `clamp(24px,4vw,38px)` / `line-height:1.06` / `font-weight:700`），与 v5.53 当时「CSS 一律未动、未擅自改断行」的处理保持一致。
+
+### 单点性证明（A 组，最强证据）
+把 v5.69 的 6 处新串逐个反向替换回旧串、并删掉新增的变更说明行后，与 v5.68 **逐字节完全相同**（`===`）；行尾全文件 CRLF=0，v5.69 恰好比 v5.68 多 1 行（新增的变更说明）。
+
+### 明确没有修改
+`STATE_VERSION(7)` / `STORAGE_KEY(inner_compass_v5_3)` / `STEPS`（7 阶段 18 题，`id`·`type`·`max`·`options`·`fields` 投影逐项相等）/ 18 题 answer key / `PM_ANCHORS` / `PM_TRAILS` / `buildMapNodes` / `buildMapRelationships` / `findNodeRelations` / `buildFieldNoteModel` / Map 相机交互（全图 · 推近 · 回全图）/ v5.68 定的**顶栏静态页头契约**（`relative` + `top:auto`，全文零 `position:sticky`）/ 顶栏与所有视图排版 / Record Mode / Export(JSON·Markdown·PDF) / Experiment Feedback / 加密备份 / 无障碍语义 —— 全部未动。
+
+左侧 lead 6 段 / 3 枚 note-chip / hero-hint / 右侧 3 张 panel 卡文案在真浏览器 `innerText` 逐字比对下**完全一致**。
+
+### 真浏览器实测（C 组，Chrome 131 headless）
+
+| 视口 | v5.68 | v5.69 | 海报盒高 | 标题块高 | 距海报底 |
+|---|---|---|---|---|---|
+| 1440×900 | 3 行 | **4 行** | 320px → 320px | 121 → 161px | 22px |
+| 1280×800 | 3 行 | **4 行** | 320px → 320px | 121 → 161px | 22px |
+| 390×844 | 3 行 | **4 行** | 320px → 320px | 76 → 102px | 22px |
+
+9 档宽度（1920 / 1440 / 1280 / 1024 / 768 / 414 / 390 / 360 / 320）全部：无横向溢出、无海报裁切、标题完整落在海报内、运行期零 `pageerror` / `console.error`。
+
+### 观感：新句占 4 行，断点把「当/前」拆开（待用户决定，本版刻意未动 CSS）
+新句 21 字（含句号）在 `max-width:11ch`（≈6 中文字/行）下必然排 4 行，断点 6/6/6/3 —— 第 3 行尾是「看见自己的当」、第 4 行是「前坐标。」。**海报盒高不变（`min-height:320px` 主导），没有撑破版式**。
+
+已渲染一版**实验件**（`_exp_v569_poster_wrap.html`，**未落地版本链**：`font-size: clamp(24px,3.4vw,34px)` + `max-width:12em`）供比对：
+
+| 视口宽 | v5.69（已落地） | 实验件（2 行方案） |
+|---|---|---|
+| 1920 / 1440 / 1280 | 4 行 38px | **2 行** 34px（断在逗号处，干净） |
+| 1024 | 4 行 38px | ⚠️ **3 行（退化）** |
+| 768 | 4 行 30.7px | **2 行** 26.1px |
+| 414 / 390 | 4 行 24px | **2 行** 24px |
+| 360 / 320 | 4 行 24px | ⚠️ **3 行（退化）** |
+
+结论：**v5.69 现状是「处处一致、零风险」**；实验件方案在 ≥1280 与移动主流宽度更漂亮，但在 **1024（常见笔记本宽）与 ≤360** 会退化。取舍待用户看过 `_shot_v569_out/对照_v568_vs_v569_vs_实验.html` 后决定。
+
+### 版本链自证
+- `diff v5.68 → v5.69` = 7 处 hunk，无重复函数定义、无行尾翻转。
+- `diff v5.69 源文件 → index.html` = 仅 4 行删除（站点图标与 PWA 注释 + 3 条死链）+ 1 行 canonical 替换，与 v5.68 发布时的收敛口径完全一致。
+- `diff download.html` = 仅 `meta version` 一行。
+
+---
+
+## v5.68（2026-09-30）— 顶栏改回静态页头（随页面滚出视野，不再吸顶）【历史】
 
 **已发布**：仓库 `index.html`（GitHub Pages）已同步至本版（2026-09-30）；`download.html` 的 meta 版本同步为 v5.68。
 

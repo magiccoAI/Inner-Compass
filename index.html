@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
-Camera Map（基于 v5.50 相机版设计）→ v5.68 最终版（当前正式交互 · 已取消试验标签；顶栏为静态页头——静态放在页面顶部、随页面滚动移出视野，不吸顶、不悬浮；静止态 = 「全图」——整张地图按 fit 比例收拢进一屏并水平居中于内容列（transform-origin 50% 0），默认就能看到大部分 / 全部地标，且六个地标关于整页中线对称；「更多线索」=Anchor 内联展开全部剩余线索而非浮层；点击地标只做镜头推近（≈1.06×）并在相机窗口内平移缩放，绝不滚动页面；「← 全图」、点击地图空白或双击地标 = 相机退回全图取景，同样不滚动页面）
+Camera Map（基于 v5.50 相机版设计）→ v5.71 最终版（当前正式交互 · 已取消试验标签；Welcome 海报主标题为 v5.53 定稿的「慢慢整理自己的生活线索，看见自己的当前坐标。」——该句在 v5.56 相机分叉时丢失，本版追回；顶栏为静态页头——静态放在页面顶部、随页面滚动移出视野，不吸顶、不悬浮；静止态 = 「全图」——整张地图按 fit 比例收拢进一屏并水平居中于内容列（transform-origin 50% 0），默认就能看到大部分 / 全部地标，且六个地标关于整页中线对称；「更多线索」=Anchor 内联展开全部剩余线索而非浮层；点击地标只做镜头推近（≈1.06×）并在相机窗口内平移缩放，绝不滚动页面；「← 全图」、点击地图空白或双击地标 = 相机退回全图取景，同样不滚动页面）
   新增 Camera / World / Viewport 轻量相机层：点击「人生地点」→ 镜头轻移靠近（transform translate3d + scale，非 left/top）→ 复用既有 pmFocusAnchor / Focus / Related / Route；「更多线索」在 v5.59 起改为 Anchor 内联展开（预渲染 .pm-latent 直接显示），FIELD NOTE 产品概念与 Clue Layer 浮层已移除；完整阅读统一交给「深入阅读」（openAnchorPanorama）。
   不动：STATE_VERSION(7) / STORAGE_KEY / STEPS / 18 题 answer keys / PM_ANCHORS / PM_TRAILS / buildMapNodes / buildMapRelationships / findNodeRelations / Record Mode / Export / Experiment Feedback / 加密备份 / 无障碍语义。
   无新增依赖 / 图片 / Canvas / WebGL / Three.js / GSAP；单 rAF(pmTick) 驱动 camera easing；reduced-motion 下禁相机动画、立即到达。
@@ -8,9 +8,11 @@ Camera Map（基于 v5.50 相机版设计）→ v5.68 最终版（当前正式�
 <!--
 Original work created by Leah / 公众号作者@D小调片段记录
 Project: Inner Compass (内在罗盘)
-Version: v5.68
+Version: v5.71
 Created: 2026
 Updated: 2026-09-30
+v5.71 (2026-09-30)：深入阅读面板可读性与段落节奏 + 思源宋体（基于 v5.70）。① 字体：新增 --font-sans / --font-serif，展示层（Welcome 海报主标题 / hero h1 / 详情面板题签 .compass-detail-head h3）改用衬线「思源宋体」——本机 Noto Serif SC 即其 Google 版，可变字体、字重轴完整，纯系统字体栈命中，零 CDN / 零 @font-face，维持单文件离线叙事；正文 / UI / 用户自己写下的字仍为无衬线。② 可读性：详情面板栏位名（.fn-item-head / .fn-field / .fn-rank / .fn-sub-label）原为 11px + --ink-faint + letter-spacing .12em（对比度 4.72:1、观感发虚），改为 13px / font-weight 600 / 字距 0.65px / 深墨色（对比度 12.08:1，AAA）。③ 段落节奏：.fn-body gap 14→24px；.fn-group + .fn-group padding-top 12→18px（分割线上下留白）；.fn-question 12.5→13.5px / line-height 1.7 / margin-bottom 12px；.fn-item + .fn-item 10→14px。④ 硬性边界：纯 CSS 声明级改动——零 DOM / 零 JS / 零数据模型 / 零 state；反向差分证明样式块之外（除版本号元数据行）逐字节不变。⑤ 断行契约量测：.poster-title 的 max-width:11ch 在宋体下每行像素宽与无衬线完全相同（中文 advance 恒 1em），10 档宽度一律 4 行，契约未破坏；.hero h1 的 -.04em 负字距保留（归零反而退化为 4 行）。⑥ 真浏览器验证 22 PASS / 0 FAIL；字体像素指纹确认 Noto Serif SC 真命中（非 SimSun、非通用回退、非无衬线）。
+v5.69 (2026-09-30)：Welcome 海报主标题文案追回（基于 v5.68）。① 缺陷定位：v5.53（2026-09-24，git 8ea513a「开场白文案更新」）已把 Welcome Poster 主标题与 download.html 主标题由「把人生问题，慢慢变成自己的语言」改为「慢慢整理自己的生活线索，看见自己的当前坐标。」，但该次改动只就地写进已发布件 index.html / download.html，**未产出任何带版本号的源文件**；v5.56（相机升正式）从 v5.50 相机试验分支出发（分叉点早于 v5.53），因而未带上该改动 —— v5.56 → v5.68 每一版都继承旧句，属「分叉丢改动」，不是有人撤回。② 线上不一致（真实缺陷）：v5.68 发布（git 5edfda4）把 v5.68 源文件整文件复制进 index.html，旧句被写回发布件；download.html 该次只同步 meta 版本号、未动主标题，于是新句幸存 —— 两个已发布页面文案自相矛盾。③ 本版只做文案层追回：.poster-title 文本改回 v5.53 定稿版本；.poster-title 的 CSS（max-width:11ch / clamp(24px,4vw,38px) / line-height:1.06）**一字未动**，与 v5.53 当时「CSS 一律未动、未擅自改断行」的处理保持一致。④ 版本号 v5.68 → v5.69：文件头 Version: + 新增本行 + <meta name="description"> + <meta name="version"> + 页脚署名行。⑤ 单点性证明：v5.5x 线与 v5.68 的整个 welcome 区块（左侧 6 段 lead + 3 枚 note-chip + CTA + 右侧 3 张 panel 卡）**只有海报标题这一行不同**，其余文案逐字一致 ⇒ 单点追回、无连带改动。⑥ 硬性边界：零结构 / 零字段 / 零数据模型 / 零 state 改动 —— STATE_VERSION(7) / STORAGE_KEY / STEPS(7 阶段 18 题) / 18 题 answer key / PM_ANCHORS / PM_TRAILS / buildMapNodes / buildMapRelationships / findNodeRelations / Map 相机交互（全图 / 推近 / 回全图）/ 顶栏静态页头契约（v5.68 定的 relative + top:auto，全文零 position:sticky）/ Record Mode / Export(JSON·Markdown·PDF) / Experiment Feedback / 加密备份 / 无障碍语义全部未动。⑦ 观感提示（待用户确认，本版刻意未改）：新句 21 字（含句号）在 max-width:11ch 下约排 4–5 行，旧句 15 字为 3 行；.poster{min-height:320px} 为自适应高度 ⇒ 海报会变高。是否调整 max-width / 字号以收在 3 行内，由用户看过前后截图后决定。
 v5.68 (2026-09-30)：顶栏改回静态页头（基于 v5.67；用户要求：Map Mode / 结果生成页的顶部导航栏不要固定悬浮在页面顶部，改为像普通导航栏一样静态放置，向下滚动浏览内容时随页面向上滚动并移出视野，要用按钮时自行滚回顶部）。① 撤销 v5.66 的吸顶：.topbar 基础规则由 position:sticky / top:14px 改为 position:relative / top:auto；body.on-summary .topbar 删去 position:sticky 与 top（保留背景 / 边框 / 投影 / 背景模糊）；**整个 @media (min-width:901px) 吸顶块删除** —— 它做的四件事全部撤回：.shell 的 padding-top 归零（恢复 20px）、top:0、border-top:0、border-radius:0 0 18px 18px（顶栏恢复完整卡片：四角 18px 圆角 + 上边框）、额外那道向下投影。② @media (max-width:720px) 的 .topbar { top: 8px } 同步改为 top:auto —— position 已是 relative，任何非 auto 的 top 都会产生硬位移。③ .summary-grid 的 scroll-margin-top 由 96px 降到 20px：那 96px 是专为吸顶栏预留的，吸顶取消后「完成 Journey → 定位到罗盘正文」的落点会凭空多出一段空白。④ 语义结果：Welcome / Journey / Summary 三个视图的顶栏现在完全同构 —— 都在文档流内静态放置、都随页面滚动移出视野，不再有任何视图的顶栏常驻视口。⑤ 实测（真浏览器 CDP，5 视口 × 3 视图 × 6 滚动位 = 90 个测量点）：顶栏「文档内位置」(rect.top + scrollY) 极差 **0.00px**（= 静态页头的定义式证明；sticky / fixed 会随滚动线性增长）；scrollY=0 时顶栏 top 桌面 20px / ≤720px 12px 且完整在视口内；滚到页面底部时 rect.bottom <= 0（完全移出视野）；填写总览抽屉开关后 body.overflow 正确还原且结论不变；Map Mode 点地标推近 / 回全图仍为**零页面滚动**。⑥ 影响面严格限定：5 处 CSS 声明 + 2 处滚动落点预留。零结构 / 零字段 / 零数据模型 / 零 state 改动：STATE_VERSION(7) / STORAGE_KEY / STEPS / 18 题 answer key / PM_ANCHORS / PM_TRAILS / buildMapNodes / buildMapRelationships / Map 相机交互 / Record Mode / Export / Experiment Feedback / 加密备份 / 无障碍语义全部未动。
 v5.67 (2026-09-30)：Map Mode 静止态「全图」水平居中（基于 v5.66；用户反馈：各个地标要相对整个结果生成页更居中）。① 现象与根因（真机实测，CDP 直驱本机 Edge headless）：静止态要把整张地图按 fitZ(<1) 收拢进一屏，而 .pm-world 的 transform-origin 是 0 0 —— 缩放是绕「左上角」进行的，于是缩小后的地图整块向左塌、右侧留出等宽空档。实测世界渲染盒 vs 舞台内容区中点：1440×900 为 177..950（中点 564）vs 177..1249（中点 713）→ 整幅左偏 149px；1280×800 左偏 200px；1080×646 左偏 220px；1920×1040 左偏 87px。观感即「六个地标全挤在页面左半边、右边空一大块」。② 改法（零 JS 平移、零新增变量）：把 .pm-world 的 transform-origin 由 0 0 改为 50% 0 —— 水平绕自身中点缩放，缩小后自动居中于舞台内容区（= --content 内容列 = 整页中线）；垂直仍从顶部起算，纵向几何与「负 margin-bottom 收口」完全不受影响。静止态 camX 依旧为 0，居中由 CSS origin 承担，不引入任何 JS 位移。③ 同步修正相机的逆变换 / 正变换：origin 移到 50% 后水平映射变为 screen = camX + originX*(1−camZ) + camZ*world，故 pmCameraTravelTo 的 Lx 反解与 camTX 计算各补一项 originX*(1−z)（否则推近后地标会水平偏离焦点 originX*(1−zoom)，1440 视口约 33px）；垂直原点仍是 0 → Ly / camTY 一字未动。pmCameraComputeFit 新增缓存 PM.worldW / PM.originX，与 PM.worldH 一样只在 render / resize / 展开更多线索时测量，绝不进 rAF。④ 实测结果（1440×900 / 1280×800 / 1080×646 三视口）：世界盒水平中点与内容区中点误差 0.0px；vision / direction 两个居中类地标误差 0.0px；values↔boundary、here↔experiment 两组左右对偶地标关于中线残差 0.0px；六个地标逐一推近的落点 σ 与 v5.66 完全一致（|Δσ| ≤ 0.1px）—— 即本版只移动「静止态的地图」，不改变任何一次推近取景的落点；点地标 → 回全图全程页面零滚动；无 pageerror / console.error。⑤ 影响面严格限定：Desktop（min-width:901px）相机块内的 .pm-world 一条 transform-origin + 相机函数两处 origin 项。移动端（≤900px）纵向流、Welcome / Journey 视图、顶栏、数据与阅读层一律未动。零结构 / 零字段 / 零数据模型 / 零 state 改动：STATE_VERSION(7) / STORAGE_KEY / STEPS / 18 题 answer key / PM_ANCHORS / PM_TRAILS / buildMapNodes / buildMapRelationships / Record Mode / Export / Experiment Feedback / 加密备份 / 无障碍语义全部未动。
 v5.66 (2026-09-29)：Map Mode 顶栏固定在网页顶部（基于 v5.64）。① 需求：进入 Map Mode 后，顶部导航栏要固定在网页顶端，不随页面向下滚走。② 真机实测（Edge headless + CDP，1440×900 / 1080×518 / 1080×646）：桌面端 .topbar 自 v5.48 起一直是 position:sticky; top:14px，且**从未失效** —— scrollY 0→1200 全部钉在 14px；祖先链只有 .shell(relative, overflow:visible) / body / html，无 overflow / transform / filter / contain 等 sticky killer；逐一开关 Detail 面板 / 填写总览 Drawer / 更多菜单 / 深入阅读之后，body.style.overflow 全部正确还原，sticky 仍有效。∴ 此前「没有固定住」的实际成因不是 sticky 失效。③ 真正的问题在「贴不贴住最上沿」：.shell 的 20px 上内边距让未滚动时的顶栏落在 y=20，叠上 top:14px 与 18px 上圆角，它读起来是一张离顶悬浮的卡片，而不是一条固定在网页顶部的栏。④ 改法（纯 CSS，零 JS、零占位元素、零文档流扰动）：(min-width:901px) 下 body.on-summary .shell 的 padding-top 归零（顶栏未滚动时即在 y=0），body.on-summary .topbar 的 top 由 14px 收到 0、去掉上边框、上圆角改直角、补一道向下的柔和投影 —— 于是它从「离顶悬浮的卡片」变成「钉在网页最上沿的一条栏」，滚到任何位置都在最上面。⑤ 仍用 position:sticky（保持在文档流内）：不需要占位元素、不需要 JS 量高度，也不会像 position:fixed 那样把下方内容整体顶上去。⑥ 生效范围严格限定桌面 Summary 视图：移动端（≤900px）与 Welcome / Journey 视图的 .topbar 规则一字未动（那两个视图本来就是 position:relative）。零结构 / 零字段 / 零数据模型 / 零 state 改动：STATE_VERSION(7) / STORAGE_KEY / STEPS / 18 题 answer key / PM_ANCHORS / PM_TRAILS / buildMapNodes / buildMapRelationships / Map 相机交互 / Record Mode / Export / Experiment Feedback / 加密备份 / 无障碍语义全部未动。注：v5.65（顶栏安全区 · 相机取景预算扣除）已按用户要求撤回，未采用，原件保留为 v5.65_RETRACTED。
@@ -120,10 +122,10 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
 <head data-page-node-id="fsJHWicoCbU8EXL52OWWk8">
     <meta charset="UTF-8" data-page-node-id="o6k7vl6EEXyy6E8KBVVBbV">
     <meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="l34J60i0HpDC5pX2nzDAP9">
-    <meta name="description" content="内在罗盘 v5.68：以🪐行星意象为线索的自我探索 Journey。Map Mode 信息架构减法保留（L1 地标 → L2 更多线索 → L3 深入阅读 → Record）；静止态即「全图」——整张地图收拢进一屏，默认就能看到大部分 / 全部地标；点击地标只做镜头推近（≈1.06×）并在窗口内平移缩放，「← 全图」、点击空白或双击地标退回全图取景，全程绝不滚动页面。不替你下结论，只帮你看见自己写下的方向。" data-page-node-id="aqbMOwbMCxAwu7dNuKWGFD">
+    <meta name="description" content="内在罗盘 v5.71：以🪐行星意象为线索的自我探索 Journey。Map Mode 信息架构减法保留（L1 地标 → L2 更多线索 → L3 深入阅读 → Record）；静止态即「全图」——整张地图收拢进一屏，默认就能看到大部分 / 全部地标；点击地标只做镜头推近（≈1.06×）并在窗口内平移缩放，「← 全图」、点击空白或双击地标退回全图取景，全程绝不滚动页面。不替你下结论，只帮你看见自己写下的方向。" data-page-node-id="aqbMOwbMCxAwu7dNuKWGFD">
     <meta name="author" content="Leah / 公众号作者@D小调片段记录" data-page-node-id="AmW93bM1S5epwS8betUfsQ">
     <meta name="copyright" content="© 2026 Leah / 公众号作者@D小调片段记录. All rights reserved." data-page-node-id="GWB0buNZa2ESDHYRLlJ0Hg">
-    <meta name="version" content="v5.68" data-page-node-id="RmwIffWpkQilzimONxuS7W">
+    <meta name="version" content="v5.71" data-page-node-id="RmwIffWpkQilzimONxuS7W">
     <!-- 主题色会随亮/暗模式动态更新（见 setTheme） -->
     <meta name="theme-color" id="themeColorMeta" content="#f6f2eb" data-page-node-id="JE1p2dLsrY89y74ph79BPL">
     <link rel="canonical" href="https://magiccoai.github.io/Inner-Compass/" data-page-node-id="UDiTXY7L6TQDFqBW3PR3hk">
@@ -132,10 +134,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
     <meta name="apple-mobile-web-app-capable" content="yes" data-page-node-id="fsUHWackV9dzvvmMSy2bFA">
     <meta name="apple-mobile-web-app-status-bar-style" content="default" data-page-node-id="PBTXi50bBCM6bzWaqFaEtW">
     <meta name="apple-mobile-web-app-title" content="内在罗盘" data-page-node-id="9i6KFBAthhIYjkcNpCwwLM">
-    <!-- 中文字体优先：Noto Sans SC（web）→ 系统字体 fallback → sans-serif -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" data-page-node-id="XEGGGIqPoC1OqiQabddu13">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin data-page-node-id="4hG1mqyzDAwERR8BKurrxi">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" data-page-node-id="rk95d20LZ9eWxffFHFCmb6">
+    <!-- 中文字体：系统字体栈优先（PingFang SC / Microsoft YaHei / system-ui），保持单文件离线、不依赖外部字体 CDN -->
     <title>内在罗盘 v5</title>
     <style>
         :root {
@@ -162,6 +161,16 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
             --content: 1180px;
             --step-width: 860px;
             --transition: 220ms ease;
+            /* v5.71 字体栈：全部为系统 / 本机已装字体 —— 零 CDN、零 @font-face、零内嵌字体，
+               维持单文件离线叙事（v5.70 已移除 Google Fonts）。
+               --font-serif 优先命中「思源宋体」：本机装的 Noto Serif SC 是思源宋体的 Google 版
+               （同一套字型设计，且为可变字体、字重轴完整，不会出现伪粗体发虚）。
+               逐级回退：macOS Songti SC → Windows 华文宋体/中宋 → SimSun → 通用 serif。 */
+            --font-sans: "Noto Sans SC", "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+            /* 注意 "Source Han Serif SC" 刻意排在最后：Adobe 版思源宋体常以
+               「Source Han Serif SC Heavy」单独安装，若排在前列，在没装 Noto Serif SC 的机器上
+               连 400 字重都会被强制成 Heavy。放最后可让它只在其它衬线全缺失时才兜底。 */
+            --font-serif: "Noto Serif SC", "Songti SC", "STSong", "华文宋体", "华文中宋", "SimSun", "Source Han Serif SC", Georgia, serif;
         }
 
         body.dark {
@@ -187,7 +196,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
         html { scroll-behavior: smooth; }
         body {
             margin: 0;
-            font-family: "Noto Sans SC", "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+            font-family: var(--font-sans);
             background: var(--bg); /* 纯色 fallback：不支持 color-mix 的旧浏览器 */
             background:
                 radial-gradient(circle at 8% 8%, rgba(97, 144, 118, .14), transparent 28rem),
@@ -377,8 +386,11 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
 
         .hero h1 {
             margin: 6px 0 4px;
+            font-family: var(--font-serif); /* v5.71：展示层衬线（思源宋体） */
             font-size: clamp(42px, 8vw, 74px);
             line-height: .98;
+            /* 负字距是为超大字号的视觉修边，衬线下**必须保留**：实测若把它归零，
+               10 档宽度会从 3 行退化成 4 行（每行 5 字）；保留则与无衬线版逐行宽度完全一致。 */
             letter-spacing: -.04em;
             max-width: 10ch;
         }
@@ -482,8 +494,14 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
             text-transform: uppercase;
         }
 
+        /* v5.71：展示层改用衬线（思源宋体）。只用于「一句话式」的展示文案 —— 海报主标题，
+           不用于正文与 UI 文案。
+           已量测：中文 advance 恒为 1em，11ch 的差异只落在拉丁 "0" 上（246.2px → 247.87px），
+           海报每行实测像素宽 sans/serif 完全相同（228/228/228/152），10 档宽度行数一律 4 行
+           ⇒ v5.69 的断行契约（max-width:11ch）未被破坏。 */
         .poster-title {
             margin-top: 10px;
+            font-family: var(--font-serif);
             font-size: clamp(24px, 4vw, 38px);
             line-height: 1.06;
             font-weight: 700;
@@ -1677,6 +1695,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
 
         .compass-detail-head h3 {
             margin: 0;
+            font-family: var(--font-serif); /* v5.71：展示层衬线（思源宋体）——「我想往哪里靠近 · 全部内容」是一句话式题签 */
             font-size: 20px;
             line-height: 1.25;
         }
@@ -1712,14 +1731,14 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
         word-wrap: break-word;
     }
     .compass-detail-provenance {
-        margin-top: 18px;
+        margin-top: 26px;
         font-size: 12px;
         letter-spacing: .02em;
         color: var(--ink-faint);
     }
     .compass-detail-related {
-        margin-top: 18px;
-        padding-top: 16px;
+        margin-top: 26px;
+        padding-top: 18px;
         border-top: 1px solid var(--line);
         font-size: 13px;
         line-height: 1.7;
@@ -4263,16 +4282,20 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
     /* ---- v5.56：Map Reading / Evidence Semantic Layer 视觉（移植自 v5.55，沿用 Cartographic Annotation 语言）
        视觉纪律不变：仍是地图注记——不用卡片、不用胶囊、不做 dashboard。
        tag 是地图注记式的 semantic token：无底色，靠 marker + 下划线表达 focus。 */
-    .fn-body { display: flex; flex-direction: column; gap: 14px; }
-    .fn-group + .fn-group { padding-top: 12px; border-top: 1px solid var(--pm-hair, var(--line)); }
+    /* v5.71：阅读节奏（深入阅读面板）。
+       旧值 gap:14 / padding-top:12 让分割线上下近乎等距，于是它读起来像「上一段的收尾」
+       而不是「下一段的开始」，段落之间也偏挤。改为线前 24px、线后 18px —— 留白偏重在线
+       的上方，分割线因此归属下一段；题签与内容、条目与条目同步拉开，长段落不再黏成一块。 */
+    .fn-body { display: flex; flex-direction: column; gap: 24px; }
+    .fn-group + .fn-group { padding-top: 18px; border-top: 1px solid var(--pm-hair, var(--line)); }
     .fn-question {
-        margin: 0 0 7px;
+        margin: 0 0 10px;
         font-size: 12.5px;
-        line-height: 1.55;
+        line-height: 1.6;
         letter-spacing: .01em;
         color: var(--ink-soft);
     }
-    .fn-tokens { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0; padding: 0; list-style: none; }
+    .fn-tokens { display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 0; padding: 0; list-style: none; }
     .fn-token { display: inline-flex; }
     .fn-tag {
         display: inline-flex;
@@ -4296,27 +4319,35 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
     .fn-tag:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; opacity: 1; }
     .fn-tag.is-focus { border-bottom: 1px solid var(--accent); opacity: 1; }
     .fn-tag.is-focus .fn-mark { background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent); }
-    .fn-subgroup + .fn-subgroup { margin-top: 7px; }
+    /* v5.71：栏位名（App 给出的标签，与用户自己写的字相对）的可读性修复。
+       旧值 10.5–11px + --ink-faint(#6b756b) + letter-spacing .12–.18em 是三重衰减叠加：
+       小字号让笔画变细、浅灰降低对比、宽字距把中文逐字拆散 —— 结果就是「发虚」。
+       新值：字号 +1.5px、字距收到 .05em（中文本身等宽，不需要 tracking）、
+       颜色由浅灰提为深墨绿（accent 34% + ink 66%，浅色/深色主题都自动成立）、
+       加 600 字重，让栏位名成为「可扫读的栏位锚点」，与提问、正文形成明确层级。 */
+    .fn-subgroup + .fn-subgroup { margin-top: 14px; }
     .fn-sub-label {
-        margin: 0 0 3px;
-        font-size: 10.5px;
-        letter-spacing: .18em;
+        margin: 0 0 6px;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: .05em;
         text-transform: uppercase;
-        color: color-mix(in srgb, var(--accent) 52%, var(--ink-faint));
+        color: color-mix(in srgb, var(--accent) 34%, var(--ink));
     }
     .fn-items { margin: 0; padding: 0; list-style: none; }
-    .fn-item + .fn-item { margin-top: 10px; }
+    .fn-item + .fn-item { margin-top: 14px; }
     .fn-item-head {
         display: flex;
         align-items: baseline;
         gap: 8px;
-        margin: 0 0 3px;
-        font-size: 11px;
-        letter-spacing: .12em;
-        color: var(--ink-faint);
+        margin: 0 0 6px;
+        font-size: 12.5px;
+        font-weight: 600;
+        letter-spacing: .05em;
+        color: color-mix(in srgb, var(--accent) 34%, var(--ink));
     }
-    .fn-rank { color: color-mix(in srgb, var(--accent) 58%, var(--ink-faint)); font-variant-numeric: tabular-nums; }
-    .fn-field { color: var(--ink-faint); }
+    .fn-rank { color: color-mix(in srgb, var(--accent) 58%, var(--ink)); font-variant-numeric: tabular-nums; }
+    .fn-field { color: inherit; }
     .fn-word {
         font: inherit;
         font-size: 15px;
@@ -4356,13 +4387,16 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
     .fn-static { margin: 0; font-size: 13.5px; line-height: 1.75; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
     /* 同一语义结构，两处排版各自沿用原有阅读度量：
        Field Note 浮层（340px）= 紧凑注记；深入阅读（宽面板）= v5.54 的阅读字号。 */
-    .compass-detail-body .fn-question { font-size: 13px; }
+    .compass-detail-body .fn-question { font-size: 13.5px; line-height: 1.7; margin-bottom: 12px; }
     .compass-detail-body .fn-item-open,
     .compass-detail-body .fn-static { font-size: 15.5px; line-height: 1.85; }
     .compass-detail-body .fn-tag { font-size: 15px; }
     .compass-detail-body .fn-word { font-size: 16px; }
     .compass-detail-body .fn-item-text { font-size: 14.5px; line-height: 1.8; }
-    .compass-detail-body .fn-sub-label { font-size: 11px; }
+    /* v5.71：窄屏面板是全宽单栏（@media max-width:900px 下 width:100%），
+       读者实际是在这一栏里长文阅读 —— 栏位名相应再放大半级。 */
+    .compass-detail-body .fn-item-head { font-size: 13px; margin-bottom: 7px; }
+    .compass-detail-body .fn-sub-label { font-size: 12.5px; }
     /* 地图上的 tag 节点被聚焦时：只加一条注记式下划线，不加底色、不变形 */
     .pm-sat.is-focus { opacity: 1; color: var(--ink); }
     .pm-sat.is-focus .pm-sat-text { border-bottom: 1px solid var(--accent); }
@@ -4669,7 +4703,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
                         <div class="poster-lines" data-page-node-id="aJTxz9goeHgCSgkqbeQsTM"></div>
                         <div class="poster-content" data-page-node-id="8mRmUUtgs3FoVPN3KHfBW2">
                             <div class="poster-label" data-page-node-id="YpQv2SF1VHQmaiHBYqjpvw">Personal Compass</div>
-                            <div class="poster-title" data-page-node-id="8PnyH4T4Vy6q2DYjfKL9B5">把人生问题，慢慢变成自己的语言</div>
+                            <div class="poster-title" data-page-node-id="8PnyH4T4Vy6q2DYjfKL9B5">慢慢整理自己的生活线索，看见自己的当前坐标。</div>
                         </div>
                     </div>
                     <div class="panel-list" data-page-node-id="EOGjbjUoqXhs2EkbY4aBzA">
@@ -4804,7 +4838,6 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
     <aside class="compass-detail-panel" id="compassDetailPanel" role="dialog" aria-modal="true" aria-labelledby="compassDetailTitle" data-page-node-id="zVmzL56ukkpbfotL7N8Mev">
         <div class="compass-detail-head" data-page-node-id="gxNFC8k5h2ixYWSm9E1mDR">
             <div data-page-node-id="RwRytRl2sMYGp0QHovUYSw">
-                <p class="cd-kicker">Field Note</p>
                 <div class="compass-detail-meta" id="compassDetailMeta" data-page-node-id="ckq5xE583CtuGpmWnat4EB"></div>
                 <h3 id="compassDetailTitle" data-page-node-id="0b4an1CLRVQwnxXvqNIgmP"></h3>
             </div>
@@ -4821,7 +4854,6 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
     <aside class="progress-drawer" id="progressDrawer" role="dialog" aria-modal="true" aria-labelledby="progressDrawerTitle" data-page-node-id="WxaZ9KvSK3lSuDKLLERMHG">
         <div class="progress-drawer-head" data-page-node-id="qPq3doS6bt8M8OHsMEJxR1">
             <div data-page-node-id="fdCKooxHSxE6VdzoCbRPgg">
-                <div class="eyebrow" data-page-node-id="TFRPg89YcAJsLgDmLKVLgv">Journey Overview</div>
                 <h3 id="progressDrawerTitle" data-page-node-id="hDXr9dFD2RzbBxEFRDK86M">填写进度</h3>
             </div>
             <button class="modal-close" id="closeProgressDrawerBtn" type="button" aria-label="关闭填写进度" data-page-node-id="kLfhu8r2SctnChf3GnNlpa">×</button>
@@ -5342,11 +5374,18 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
                     if (immediate) announce(text); // v5.30.3：防抖自动保存只更新状态灯与文字，不逐次播报
                     // v5.13：自动保存改为 topbar 状态灯脉冲，不再每次弹深色胶囊
                 } catch (error) {
-                    // QuotaExceededError 等存储异常（第 17 项）
+                    // 存储异常区分：配额耗尽 vs 浏览器禁用本地存储（第 17 项）
                     console.warn("save failed", error);
-                    updateSaveState("保存失败，空间不足", false);
-                    announce("保存失败，空间不足");
-                    showToast("保存失败：浏览器存储空间不足，建议使用“加密保存”或高级导出。");
+                    const isQuota = error && (error.name === "QuotaExceededError" || error.code === 22 || error.code === 1014);
+                    if (isQuota) {
+                        updateSaveState("保存失败，空间不足", false);
+                        announce("保存失败：浏览器本地存储空间不足");
+                        showToast("保存失败：浏览器本地存储空间不足，建议使用“加密保存”或高级导出。");
+                    } else {
+                        updateSaveState("保存失败，未允许本地保存", false);
+                        announce("保存失败：当前浏览器未允许本地保存");
+                        showToast("保存失败：当前浏览器未允许本地保存，请使用“加密保存”或高级导出。");
+                    }
                 }
             };
             if (immediate) {
@@ -8890,7 +8929,13 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
                     downloadFile(html, `inner_compass_v5_${formatDateLocal(new Date())}.html`, "text/html;charset=utf-8");
                     return;
                 }
-                try { printDocument(win); } catch (error) { console.warn("report print failed", error); }
+                try { printDocument(win); } catch (error) {
+                    console.warn("report print failed", error);
+                    /* 打印异常（如对话框被拦截）：退回下载同内容 HTML，保证完整可读 */
+                    downloadFile(html, `inner_compass_v5_${formatDateLocal(new Date())}.html`, "text/html;charset=utf-8");
+                    showToast("打印暂不可用，已改为下载 HTML 文件，可在浏览器中打开或另存为 PDF");
+                    announce("已下载完整记录的 HTML 文件");
+                }
             };
             frame.addEventListener("load", () => {
                 const hostWin = frame.contentWindow;
@@ -9956,14 +10001,6 @@ Inner Compass 不是替填写者找到职业答案，而是让一个模糊的「
 
         function init() {
             loadState();
-            // 注册 Service Worker（PWA 离线支持；仅在 http/https 环境下生效，file:// 静默跳过）
-            try {
-                if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
-                    navigator.serviceWorker.register("sw.js").catch(() => {});
-                }
-            } catch (e) {
-                // file:// 协议下会同步抛出，无需处理
-            }
             // 主题初始化（第 10 项）：localStorage 偏好 > 系统 prefers-color-scheme > 默认浅色
             if (!state.theme) {
                 const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -11388,7 +11425,7 @@ Inner Compass 不是替填写者找到职业答案，而是让一个模糊的「
         document.addEventListener("DOMContentLoaded", init);
     </script>
     <footer class="page-footer" data-page-node-id="qI2TjVVR1ceVWvmJrsPltG">
-        <div data-page-node-id="gkdLI0X0LOfXzFfvDxNvjm">Created by Leah / 公众号<a href="https://mp.weixin.qq.com" target="_blank" rel="noopener" data-page-node-id="IHLdmqOo5L9rHtBJnIuMQ1">@D小调片段记录</a> · Self Discovery Framework v5.68</div>
+        <div data-page-node-id="gkdLI0X0LOfXzFfvDxNvjm">Created by Leah / 公众号<a href="https://mp.weixin.qq.com" target="_blank" rel="noopener" data-page-node-id="IHLdmqOo5L9rHtBJnIuMQ1">@D小调片段记录</a> · Self Discovery Framework v5.71</div>
         <div data-page-node-id="BTqcCM7Bu1caEvWSHLrHS3">所有数据仅保存在当前设备，不会上传至服务器。如在公共设备上使用，请勿留存私人记录。</div>
     </footer>
 </body>
