@@ -1,5 +1,251 @@
 # Inner Compass（内在罗盘）变更记录
 
+## v5.68（2026-09-30）— 顶栏改回静态页头（随页面滚出视野，不再吸顶）【当前活动基】
+
+**已发布**：仓库 `index.html`（GitHub Pages）已同步至本版（2026-09-30）；`download.html` 的 meta 版本同步为 v5.68。
+
+**产出**：`最终公开版inner_compass_v5_optimized_v5.68.html`（v5.67 原件保留，版本链不覆盖）
+**配套脚本**：`_apply_v568.py`（版本串 ×5 + 文件内 CHANGELOG + 本文件，每个 op 断言命中 1 次）；CSS 由 5 处逐条编辑完成，逐条 `grep -c` 自证
+**验证**：`_verify_v568_topbar_static.js` 真浏览器验收（**5 视口 × 3 视图 × 6 滚动位 = 90 个测量点** + A–G 七组；CDP 直驱本机 Edge headless，零联网 / 零 npm）
+
+### 触发
+「我希望地图模式（map mode）以及结果生成页面的顶部导航栏，不要像移动端那样固定悬浮在页面顶部，而是改为与普通导航栏一样，静态放置在页面顶部。用户向下滚动浏览内容后，导航栏会随页面向上滚动并移出视野，当用户需要再次使用导航栏的各项功能按钮时，可以自行向上滑动回到页面顶部查看。」
+
+> 这是对 **v5.66** 的**明确撤销**：v5.66 刚把桌面 Summary 视图的顶栏钉在网页最上沿；本轮用户决定改为静态页头，不再常驻视口。
+
+### 改动（5 处 CSS + 2 处滚动落点，零 JS、零结构、零占位元素）
+
+| # | 位置 | 改动 |
+|---|---|---|
+| 1 | `.topbar` 基础规则 | `position: sticky; top: 14px` → **`position: relative; top: auto`** |
+| 2 | `body.on-summary .topbar` | 删去 `position: sticky; top: 14px`（背景 / 边框 / 投影 / `backdrop-filter` 保留） |
+| 3 | `@media (min-width: 901px)` **整块删除** | v5.66 的吸顶块，四件事全部撤回：`.shell{padding-top:0}` → 恢复 20px；`top:0`、`border-top:0`、`border-radius:0 0 18px 18px` → 恢复**完整卡片**（四角 18px 圆角 + 上边框）；额外那道向下投影 → 撤回 |
+| 4 | `@media (max-width: 720px) .topbar` | `top: 8px` → `top: auto`（relative 下任何非 auto 的 `top` 都会产生硬位移） |
+| 5 | `.summary-grid` | `scroll-margin-top: 96px` → `20px`（那 96px 是专为吸顶栏预留的） |
+
+**5** 连带影响「完成 Journey → 定位到罗盘正文」（`refresh()` 里的 `scrollIntoView({block:'start'})`）的落点随之**上移 76px**，不再凭空多出一段空白。
+
+### 语义结果
+Welcome / Journey / Summary **三个视图的顶栏现在完全同构**：都静态放在页面顶部、都留在文档流内、都随页面滚动移出视野；**不再有任何视图的顶栏常驻视口**。需要「开场说明 / Dark Mode / 填写总览 / 更多」时，自行滚回页面顶部。
+
+### 实测结果
+
+**B 组核心断言：顶栏「文档内位置」`rect.top + scrollY` 在全部滚动位恒定不变。**
+
+| 视口 | summary docTop 极差 | journey | welcome | scrollY=0 时 top | 滚到页面底部（summary） |
+|---|---|---|---|---|---|
+| 1440×900 | **0.00px** | 0.00px | 0.00px | 20px | scrollY 1513 → `bottom ≤ 0` 完全移出 |
+| 1280×800 | **0.00px** | 0.00px | 0.00px | 20px | scrollY 1512 → 完全移出 |
+| 1080×646 | **0.00px** | 0.00px | 0.00px | 20px | scrollY 1528 → 完全移出 |
+| 820×900 | **0.00px** | 0.00px | 0.00px | 20px | scrollY 2306 → 完全移出 |
+| 390×844 | **0.00px** | 0.00px | 0.00px | 12px | scrollY 2792 → 完全移出 |
+
+- `docTop` 极差 **0.00px** 即「静态页头」的定义式证明：位置在文档坐标里固定，与滚动无关；**若是 sticky / fixed，该值会随滚动线性增长**（v5.66 同位置实测即为线性增长）。
+- 视口内 top 从 20 单调降到 −1180（y1200），跨度 > 1200px ⇒ 确实滚了出去，不是「没滚动」的假通过。
+- 390×844 的 `top = 12px` 对应 `@media (max-width:720px)` 的 `.shell { padding-top: 12px }`，符合预期。
+- E 组：`填写总览` 抽屉开关后 `body.overflow` 由 `""` → `"hidden"` → **`""` 正确还原**，且 docTop 极差仍为 0。
+- F 组：Map Mode 点地标推近与回全图**全程零页面滚动**；≤900px 为 stacked，相机本就不接管，与既有契约一致。
+  （F3 的参照物在本轮由 `fitZ` 改为 **`camTZ`** —— `fitZ` 每次 `pmCameraComputeFit()` 都重算，headless 下 resize/refit 竞态会让它漂 ~0.3%，拿它当参照会间歇性假失败。）
+
+### 相机层「零改动」的独立证明（不是靠「我没碰它」这句话）
+同一份 v5.67 相机套件 `_verify_v567_center.js` 同时跑在两版上，逐地标配对比较推近落点 σ（1440×900）：
+
+| 地标 | v5.67 σ | v5.68 σ | camX（v5.67 / v5.68） |
+|---|---|---|---|
+| vision | −58.8px | **−58.8px** | −18.8 / −18.8 |
+| values | −58.0px | **−58.0px** | 288.7 / 288.7 |
+| boundary | −58.0px | **−58.0px** | −324.7 / −324.7 |
+| direction | −58.3px | **−58.3px** | 27.8 / 27.8 |
+| here / experiment | −58.5 / −58.3px | 见备注 | 302.1 / −383.3 |
+
+前四个地标**逐位相同**（camZ、camX、σ 全等）⇒ 顶栏定位改动与相机层完全正交。
+`here` / `experiment` 在六地标连跑的会话里会被 headless rAF 节流吃掉（既有已知行为，本轮实测 `camMoving` 从未置真、`camZ` 停在 `fitZ`），故改用单地标单浏览器探针 `_probe_v567_here.js` 复测。
+
+### 验证备注（避免下轮误读）
+- 顶栏套件最终一轮：**93 PASS / 1 FAIL**，唯一 FAIL 是 `1280x800 会话异常`（Edge headless 启动失败「无法连接 Edge DevTools」）——**环境抖动，非功能问题**；12 组「视口 × 视图」的 `docTop` 极差全部 **0.00px**。
+- **v5.67 基线对照同一脚本：17 FAIL**，全部是「吸顶」被静态断言判否（`docTop` 极差 1200px / 视口内跨度 0px / position=sticky / 滚到底仍在屏内）⇒ 判别力真实存在，不是空过。
+- 基线文件 `_verify_v567_baseline_v566.json` 里 `here` / `experiment` 两条 σ 是当时采集抖动写入的坏值（−391.33 / 67.48 等，明显与其余四个地标 −58 级别不自洽），**本轮已依 v5.67 六地标全部推近的实测修正**并加 `_note` 说明；1080×646 两条无可用真值，已移除以免 B9 假 FAIL。
+- G 组：无 pageerror / console.error。
+
+### 明确没有修改
+移动端（≤900px）地图纵向流与 `IntersectionObserver`、`.pm-stage` 的 block-flow 落位与各 anchor 的 `max-width`/`margin`、`.pm-world` 的 `transform-origin: 50% 0`（v5.67）、相机函数（`pmCameraComputeFit` / `pmCameraTravelTo` / `pmCameraOverview` / `pmCameraArrive`）、`buildFieldNoteModel` 阅读层、STEPS 7 阶段 18 题 / answer key / `STATE_VERSION(7)` / `STORAGE_KEY` / `PM_ANCHORS` / `PM_TRAILS` / `buildMapNodes` / `buildMapRelationships` / Record Mode / Export / Experiment Feedback / 加密备份 / 无障碍语义 **全部未动**。
+
+### 顺带记录
+顶栏不再是 sticky 后，先前为它准备的 `scroll-padding-top` 安全区方案**已无必要**（遮挡问题随之消失），此前给出但未落地的 v5.68 建议（`scroll-padding-top: 76px`）作废，改由本版替代。
+
+---
+
+## v5.67（2026-09-30）— Map Mode 静止态「全图」水平居中（基于 v5.66）【历史】
+
+**产出**：`最终公开版inner_compass_v5_optimized_v5.67.html`（v5.66 原件保留，版本链不覆盖）
+**配套脚本**：`_apply_v567.py`（版本串 + 文件内 CHANGELOG；6 个 op 各断言命中 1 次）；相机层代码由 4 处逐条编辑完成，**逐条 `grep -c` 自证各命中 1 次**
+**验证**：`_probe_v567_center.js` 只读几何探针（5 视口）；`_verify_v567_center.js` 真浏览器配对验收（3 视口 × A/B/C/D/E 五组，含「与 v5.66 落点 σ 配对比较」）；`_shot_v567_before_after.js` 前后对照截图（`_shot_v567_out/`）
+**改动面**：`v5.66 → v5.67` 全文 diff 仅 **12 处 hunk / 11 删 34 增**，其余零触碰；5 个相机函数定义各仍为 1 个（无重复定义）
+
+### 触发
+「能让目前最新的 map mode 中各个地标的更居中一点么？相对于整个结果生成页的页面来说。」
+
+### 背景（真浏览器实测，CDP 直驱本机 Edge headless）
+- **不是 margin 摆位问题，是 `transform-origin` 问题。** 静止态「全图」要把整张地图按 `fitZ`(<1) 收拢进一屏，而 `.pm-world` 的 `transform-origin` 是 `0 0` —— 缩放绕**左上角**进行，于是缩小后的地图**整块向左塌**，右侧空出与左侧等宽的空档。
+- 实测「世界渲染盒中点 vs 舞台内容区中点」偏差：
+
+| 视口 | fitZ | 世界渲染盒 | 舞台内容区 | 整幅左偏 |
+|---|---|---|---|---|
+| 1920×1040 | 0.8367 | — | — | **−87px** |
+| 1440×900 | 0.7212 | 177..950（中点 564） | 177..1249（中点 713） | **−149px** |
+| 1280×800 | 0.6410 | 95..784（中点 440） | 95..1170（中点 633） | **−193px** |
+| 1080×646 | 0.5500 | 60..580（中点 320） | 60..1005（中点 533） | **−212px** |
+
+- 观感即「六个地标全挤在页面左半边、右边空一大块」（前后截图 `_shot_v567_out/` 可直接对照：v5.66 左空 0px / 右空 299px；v5.67 左空 149px / 右空 149px）。
+- 与顶栏无关、与相机推近无关：**只发生在静止态的 fit 缩放**上。
+
+### 改动
+1. `@media (min-width: 901px)` 下 `.pm-world` 的 `transform-origin: 0 0 → 50% 0` —— 水平绕**自身中点**缩放，静止态自动居中于舞台内容区（= `--content` 内容列 = 整页中线）；**垂直原点仍是 `0`**，纵向几何与「负 `margin-bottom` 收口」完全不受影响。**零 JS 平移、零新增变量：静止态 `camX` 依旧为 `0`。**
+2. **同步修正相机的逆变换 / 正变换**（origin 移到 50% 后水平映射多了 `originX*(1−camZ)` 一项）：
+   - `pmCameraTravelTo` 的 `Lx` 反解补 `− ox * (1 - PM.camZ)`；
+   - `PM.camTX` 计算补 `− ox * (1 - zoom)`。
+   - 不补则推近后地标会水平偏离焦点 `originX*(1−zoom)`（1440 视口约 33px）。**垂直原点仍为 0 → `Ly` / `camTY` 一字未动。**
+3. `pmCameraComputeFit` 新增缓存 `PM.worldW` / `PM.originX = worldW / 2`（与 `PM.worldH` 一样**只在 render / resize / 展开更多线索时测量，绝不进 rAF**）；`PM` 初始化对象补 `worldW: 0, originX: 0`。
+
+### 明确没有修改
+移动端（≤900px）纵向流、`.topbar` 顶栏规则、Welcome / Journey 视图、`.pm-stage` 的 block-flow 交错落位与各 anchor 的 `max-width`/`margin`、`.pm-atmos` 视差、`buildFieldNoteModel` 阅读层、STEPS 7 阶段 18 题 / answer key / `STATE_VERSION(7)` / `STORAGE_KEY` / `PM_ANCHORS` / `PM_TRAILS` / `buildMapNodes` / `buildMapRelationships` / Record Mode / Export / Experiment Feedback / 加密备份 / 无障碍语义 **全部未动**。
+
+### 实测结果
+| 断言组 | 1440×900 | 1280×800 | 1080×646 |
+|---|---|---|---|
+| A1 世界盒中点 = 内容区中点 | 0.0px | 0.0px | 0.0px |
+| A3/A4 vision / direction 中点 | 0.0px | 0.0px | 0.0px |
+| A5 values↔boundary 对称残差 | 0.0px | 0.0px | 0.0px |
+| A6 here↔experiment 对称残差 | 0.0px | 0.0px | 0.0px |
+| A7 静止态 camX 仍为 0 | ✅ | ✅ | ✅ |
+| C1 回全图后中点复位 | 0.0px | 0.0px | 0.0px |
+| E1 无 pageerror / console.error | ✅ | ✅ | ✅ |
+
+**配对比较（对 v5.66 跑同一脚本取基线）：六个地标逐一推近的落点 σ 与 v5.66 一致，`|Δσ| ≤ 0.1px`**（1080×646 六项齐全；`here` / `experiment` 另用 `_probe_v567_here.js` 单独复测，`|Δσ| ≤ 0.05px`）→ **本版只移动「静止态的地图」，不改变任何一次推近取景的落点**。点地标 → 回全图全程**零页面滚动**。
+
+### 顺带查清（不在本版改动范围，已记入项目记忆）
+- **既有小偏差**：`pmCameraTravelTo` 的 `Lx` 反解**漏了舞台 `padding-left`**，使推近落点比 `sr.left + sr.width*bias.x` 系统性偏左 `padL*(zoom/fitZ − 1)`，1440 视口实测 **σ ≈ −58.5px**。v5.66 与 v5.67 数值完全相同 ⇒ **既有行为、非本版引入**；本版刻意**没有**顺带修它，以免未经确认就改变已调好的取景手感。若要修，只需在 `Lx` 与 `camTX` 里补 `padL`。
+- **测试方法修正**：用「computed transform 连续 N 次相同」判断相机停稳，在 headless rAF 节流下会**假停稳**（本项目旧 `_e2e_*` 即踩此坑）。正解是读 `PM.camMoving` / `PM.camTZ`（`PM` 不能用 `window.PM` 取，但作为脚本顶层词法绑定在 `Runtime.evaluate` 里可直接引用）。同一被测页连续跑 6 次相机动画，后段仍可能被节流 → 需要干净数据时改为**一个视口 / 少量地标**，必要时一个地标一个浏览器。
+
+---
+
+## ⚠️ v5.65 已撤回（2026-09-29，未采用）
+
+**撤回**：`最终公开版inner_compass_v5_optimized_v5.65.html` → `最终公开版inner_compass_v5_optimized_v5.65_RETRACTED.html`（补丁脚本 `_apply_v565.py` → `_apply_v565_RETRACTED.py`）。原件保留可查，不进版本链、不作活动基。
+
+**撤回原因**：该版做的是「顶栏安全区 —— `.pm-stage` 顶部预留吸顶顶栏占位，并把 `pmCameraComputeFit` 的取景预算由 `window.innerHeight` 改为 `vh − safeTop`」。用户指出这不是他要的：他要的是**把那条顶栏本身固定在网页顶部**，而不是调整地图取景。已按「撤回」处理，v5.66 从 v5.64 重新出发。
+
+**原提案留下的唯一有效副产物**：一处对「遮挡」的正确认识 —— 单靠缩小取景比例消除不了顶栏遮挡（实测把 fitZ 从 0.721 缩到 0.610，第 01 个地标的标题仍被遮 69px / 21px），因为 anchor 距舞台顶端始终只有约 20px；必须先有安全区。若日后仍要处理遮挡，这条结论可直接复用。
+
+---
+
+## v5.66（2026-09-29）— Map Mode 顶栏固定在网页顶部（基于 v5.64）【历史】
+
+**产出**：`最终公开版inner_compass_v5_optimized_v5.66.html`（v5.64 原件保留，版本链不覆盖）
+**配套脚本**：`_apply_v566.py`（EOL-safe；6 个 op 各断言命中 1 次；写入后自证）
+**验证**：`_check_v566.js` 文件级静态 **28 PASS / 0 FAIL**（vm 语法 + 30 项结构/数据/相机不变式与 v5.64 逐项一致 + v5.65 痕迹为零 + 历史记录完好 + 改动面 bounded）；`_verify_v566_topbar.js` 真浏览器 **54 PASS / 0 FAIL**（7 个视口 × 贴顶/钉住/直角/去上边框，另含其他视图隔离与相机零滚动回归）
+**改动面**：`v5.64 → v5.66` 全文 diff 仅 **34 行**（5 处版本串 + 1 条文件内 CHANGELOG + 23 行 CSS + 页脚），其余零触碰
+
+### 触发
+「撤回刚刚的调整。我的意思是想将进入 map mode 的悬浮导航栏固定住，不要随着页面下滑时也滚动到地标的窗口。看这个截图中最顶上的导航栏，目前它不是固定在网页顶部。」
+
+### 背景（真浏览器实测）
+- **纠正一个前提**：桌面端 `.topbar` 自 v5.48 起一路是 `position: sticky; top: 14px`，且**从未失效** —— Edge headless 实测 1440×900 / 1080×518 / 1080×646，scrollY 0→1200 全部钉在 14px；祖先链只有 `.shell(relative, overflow:visible)` / `body` / `html`，无 overflow / transform / filter / contain 等 sticky killer。
+- **排除「点开地标后就不固定」**：逐一开关 Detail 面板 / 填写总览 Drawer / 更多菜单 / 深入阅读（`_probe_sticky_flows.js`），`body.style.overflow` 全部正确还原，sticky 仍有效。∴ 不存在该路径。注意：`body { overflow: hidden }` 会「传播到视口」而**不会**让 body 自己变成滚动容器，因此它并不破坏 sticky（真正破坏它的是「祖先 overflow 非 visible」）。
+- **真正与预期不符的是「贴不贴住最上沿」**：`.shell` 的 20px 上内边距让未滚动时的顶栏落在 y=20，再叠上 `top:14px` 与 18px 上圆角 —— 它读起来是一张**离顶悬浮的卡片**，而不是一条固定在网页顶部的栏。用户报的正是这一点。
+- **确认用户落在哪个断点**：≤900px 时 `.compass-header { flex-direction: column }`（标题在上、按钮在下）；用户截图里是「标题在左、按钮行在右」并排 → CSS 视口宽度 **≥901px**，属桌面分支。
+
+### 改动（纯 CSS，零 JS、零占位元素、零文档流扰动）
+1. `@media (min-width: 901px)` 下 `body.on-summary .shell { padding-top: 0; }` —— 顶栏未滚动时即在 **y=0**（原来在 y=20）。
+2. `@media (min-width: 901px)` 下 `body.on-summary .topbar`：`top: 14px → 0`、`border-top: 0`、`border-radius: 18px → 0 0 18px 18px`、补一道向下柔和投影 —— 从「离顶悬浮的卡片」变成「钉在网页最上沿的一条栏」。
+3. **仍用 `position: sticky`（留在文档流内）**：不需要占位元素、不需要 JS 量高度，也不会像 `position: fixed` 那样把下方内容整体顶上去。
+
+### 明确没有修改
+移动端（≤900px）与 Welcome / Journey 视图的 `.topbar` 规则一字未动（那两个视图本来就是 `position: relative`）。相机 Map 交互 / STEPS 7 阶段 18 题 / answer key / `STATE_VERSION(7)` / `STORAGE_KEY` / `PM_ANCHORS` / `PM_TRAILS` / `buildMapNodes` / Record Mode / Export / Experiment Feedback / 加密备份 / 无障碍语义全部未动。
+
+### 实测结果
+| 视口 | 未滚动 tbTop | .shell padding-top | 上圆角 | 上边框 | 深处(1200) tbTop |
+|---|---|---|---|---|---|
+| 1024×768 / 1080×646 / 1280×800 / 1366×768 / 1440×900 / 1440×646 / 1920×1080 | **0** | **0px** | **0px** | **0px** | **0** |
+| 760×900（移动端，仅确认未受影响） | — | 20px | 18px | 1px | 滚走（既有行为） |
+
+其他视图隔离：`on-welcome` / `on-journey` 仍为 `position: relative`；`on-summary` 为 `sticky / top: 0px`。相机回归：点击地标页面零滚动、相机正常推近停稳、顶栏仍贴最上沿。
+
+### 遗留观察（未改，供决策）
+≤900px 时 `html, body { overflow-x: hidden }` 会让 `html` 的 overflow 不再是 `visible` → body 的 overflow 不再向视口传播 → body 成为滚动容器 → **移动端 `.topbar` 的 sticky 实际失效**（真机 760×900 实测滚动后 tbTop=-1163）。这是既有行为、非本版引入；移动端顶栏本就是「随内容滚走」的浮层设计，故本次未动。若希望移动端也常驻，需另开一版。
+
+---
+
+## v5.64（2026-09-29）— Map Mode：双击地标回到「全图」（基于 v5.63）
+
+**产出**：`最终公开版inner_compass_v5_optimized_v5.64.html`（v5.63 原件保留，版本链不覆盖）
+**配套脚本**：`_apply_v564.py`（EOL-safe；10 个锚点各断言命中 1 次；写入后 unified-diff 自证 = 7 hunk / 5 行替换 / 25 行新增）
+**验证**：`_check_v564.js` 文件级静态 **61 PASS / 0 FAIL**（vm 语法 + 零结构/零数据不变式 + 相机层函数体逐字未变）；`_e2e_v564.js` 真浏览器 E2E（CDP 直驱本机 Edge headless，零联网 / 零 npm）**47 PASS / 0 FAIL**
+
+### 触发
+「Map Mode 的地标交互感参照 v5.48 —— 默认能看到大部分地标，且双击一个地标最后会回到全图，而不是双击后跳到 map mode 顶部。」
+
+### 背景（真浏览器实测，纠正原始记忆）
+- v5.48 与 v5.62 的地图布局**逐像素相同**；v5.48 在 1440×900 一屏也只可见 1 个地标。记忆里的「v5.48 默认能看到大部分地标 + 有『← 全图』按钮」实为 **v5.5x 相机版的「全图」状态**。
+- v5.62「双击跳顶」根因：`pmCameraOverview()` 内的 `window.scrollTo({top:0,behavior:"smooth"})`。双击第一次点击已被相机 transform 把地标移走，第二次点击落在原地（已成空白 viewport）→ 命中事件兜底分支 → `pmCameraExit()` → 滚到顶。实测 1440×900：点空白 scrollY 900→0、真实双击 886→0。
+
+### 改动（分 v5.63 / v5.64 两步，均已落地）
+1. **v5.63 — 默认即「全图」**：静止态按 fit 把整张地图收拢进一屏（6 地标 world 1248px / 视口 758px → 0.607×），默认一屏可见全部 6 个地标；负 `margin-bottom` 精确抵掉缩放省下的高度（页面不多留一屏空白、也不裁切）。
+2. **v5.63 — 地标交互绝不滚动页面**：`pmCameraOverview` 删除 `window.scrollTo`；`pmCameraTravelTo` 删除 `scrollIntoView`；推近期间由 `.pm-stage.is-camera` 打开窗口裁切（地图不溢出到下方版块）；「← 全图」按钮首次显式绑定处理器。
+3. **v5.64 — 双击地标 = 回到「全图」**：新增 `onCompassDblClick`（document 级委托，与 `onCompassClick` 同处绑定），地图窗口内双击地标即 `pmCameraOverview()`（退回全图取景 + 清空 Focus，零滚动），与「单击 = 镜头推近」构成对称开关。排除 `.pm-sat / .pm-read / [data-anchor-more] / [data-anchor-vision] / [data-jump-key]` 等子交互元素；Mobile（stacked）与 reduced-motion 不接管。
+
+### E2E 关键实测（1440×900）
+| 动作 | v5.62 | v5.64 |
+|---|---|---|
+| 进入 Map Mode 默认视图 | 一屏仅 1 个地标 | **一屏 6 个地标全可见**（0.607×） |
+| 单击地标 | 推近 1.06×，页面不滚 | 推近 1.06×，页面不滚（不变） |
+| **双击地标** | **scrollY 886 → 0（跳到顶部）** | **scrollY 886 → 886，相机退回全图取景、Focus 清空** |
+| 点地图空白 | scrollY 900 → 0 | scrollY 900 → 900，退回全图取景 |
+| 「← 全图」按钮 | 无监听（靠兜底分支，同样滚到顶） | 显式绑定，退回全图取景、零滚动 |
+| 双击「深入阅读 / 关键词 tag」 | — | 不被劫持，相机保持推近态 |
+
+### 未动 / 非回归
+STATE_VERSION(7) / STORAGE_KEY / STEPS(7 阶段 18 题) / 每题 id·type·max / PM_ANCHORS / PM_TRAILS / buildMapNodes / buildMapRelationships / findNodeRelations / buildFieldNoteModel / openAnchorPanorama / openCompassDetail / Record Mode / Export / Experiment Feedback / 加密备份 / 无障碍语义全部未动（静态校验逐条与 v5.63 比对通过）。
+
+---
+
+## v5.63（2026-09-29）— Map Mode 地标交互感回归「全图」（基于 v5.62）【历史 · 已被 v5.64 取代 · 本号补录】
+
+**产出**：`最终公开版inner_compass_v5_optimized_v5.63.html`（v5.62 原件保留）
+**配套脚本**：`_apply_v563.py` + `_check_v563.js`（静态）+ `_e2e_v563.js`（真浏览器）
+**改动**：① 静止态 =「全图」：整张地图按 fit 收拢进一屏（6 地标 1248px / 758px → 0.607×），默认可见全部 6 个地标；② 负 `margin-bottom` 精确抵掉缩放省下的高度（页面不多留空白、不裁切）；③ `.pm-stage.is-camera` 打开窗口裁切，推近期间地图不溢出到下方版块；④ `pmCameraOverview` 删除 `window.scrollTo({top:0})`、`pmCameraTravelTo` 删除 `scrollIntoView`；⑤「← 全图」按钮首次显式绑定；⑥ 相机焦点改用窗口高度而非 `window.innerHeight`；⑦「更多线索」展开/收起后重算高度并重新取景；⑧ reduced-motion 立即到达全图取景。
+**验证**：`_check_v563.js` 静态 + `_e2e_v563.js` 真浏览器 E2E **39 PASS / 0 FAIL**。
+**未动 / 非回归**：同 v5.64，零结构 / 零字段 / 零数据模型改动。
+
+> **补录说明**：本条为事后补录。此前该位置记的是「问卷重建滚动残跳彻底归零（`behavior:"instant"`）」，但该编号实际由本次 Map Mode 工作占用 —— 见下条。
+
+---
+
+## ⚠️ 【记录存疑 · 未落地任何文件】v5.63（2026-09-29）— 问卷重建滚动残跳彻底归零（基于 v5.62）
+
+> **2026-09-29 复核结论**：本条记录的「`refreshQuestionInput` 滚动还原由 `behavior:"auto"` 改为 `behavior:"instant"`」**在任何 HTML 文件中都不存在** —— 全目录 `grep "instant" --include="*.html"` 零命中；活动源 v5.63 / v5.64 内实测仍是 `behavior:"auto"`（仅在 rAF 帧末再校正一次，即 v5.62 的双帧校正）。推测是当时记录在前的计划被 Map Mode 全图工作插队，且 v5.63 号被后者占用。
+> **待 Leah 决定**：(a) 在后续版本补做这处 `behavior:"instant"` 改动；或 (b) 直接更正/删除本条记录。**在决定之前，请勿把本条当作已交付项。**
+> 以下为原始记录，未作修改：
+
+**产出**：`最终公开版inner_compass_v5_optimized_v5.63.html`（v5.62 原件保留）
+**触发**：真浏览器 E2E（CDP 直驱本机 Edge headless，零联网 / 零 npm 包，见 `_e2e_browser.js`）在 v5.62 仍报约 9px 残跳。
+**根因**：根元素 `html{scroll-behavior:smooth}`（L187）会把 `window.scrollTo({behavior:"auto"})` 也变成动画滚动，导致「立即还原」实际仍在飞、数百毫秒后才停，表现为残跳。
+**改动（1 处）**：`refreshQuestionInput` 的滚动还原由 `behavior:"auto"` 改为 `behavior:"instant"` 强制瞬间归位（绕过 CSS smooth），保留 rAF 帧末再校正防异步布局钳制。
+**验证**：`_e2e_browser.js` 真浏览器 E2E **9 PASS / 0 FAIL**（Map 可见地标零跳动、视口外地标才轻带入、问卷点未选标签 / 打字后零跳动、运行期零 pageerror、控制台零 error）。
+**未动 / 非回归**：STATE_VERSION(7) / STORAGE_KEY / STEPS / 18 题 answer key / PM_ANCHORS / PM_TRAILS / buildMapNodes / buildMapRelationships / Record Mode / Export / Experiment Feedback / 加密备份 / 无障碍语义全部未动。
+
+## v5.62（2026-09-29）— 问卷重建滚动双帧校正（基于 v5.61）
+
+**产出**：`最终公开版inner_compass_v5_optimized_v5.62.html`（v5.61 原件保留）
+**改动（1 处）**：`refreshQuestionInput` 在「立即校正滚动」之外再于 `requestAnimationFrame` 帧末校正一次，兜住 focus 异步滚动纠正；把 v5.61 残留约 20px 降到约 9px。
+**未动 / 非回归**：同上零结构 / 零字段改动。
+
+## v5.61（2026-09-29）— Map Mode 点击地标滚动收口（基于 v5.60）
+
+**产出**：`最终公开版inner_compass_v5_optimized_v5.61.html`（v5.60 原件保留）
+**改动（1 处）**：`pmCameraTravelTo` 的滚动守卫由「完全在视口内才跳过」改为「只要有一部分在视口内就绝不滚动」（仅完全在视口外才 `scrollIntoView({block:"nearest"})` 轻带入），修复 tall 地标部分出屏仍被推到居中导致的上跳。
+**未动 / 非回归**：同上零结构 / 零字段改动。
+
 ## v5.53（2026-09-24）— 开场白文案修订（首页 Poster 主标题 + 下载页主标题）【基于 v5.52】
 
 **产出**：`index.html`（仓库根，GitHub Pages 发布件）与 `download.html` **就地修订**（v5.52 基线由 git 提交 `69be5cc` 保留，另存字节备份 `_pre_v553_index.html` / `_pre_v553_download.html`）

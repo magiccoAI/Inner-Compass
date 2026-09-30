@@ -1,11 +1,31 @@
 <!DOCTYPE html>
 <!--
+Camera Map（基于 v5.50 相机版设计）→ v5.68 最终版（当前正式交互 · 已取消试验标签；顶栏为静态页头——静态放在页面顶部、随页面滚动移出视野，不吸顶、不悬浮；静止态 = 「全图」——整张地图按 fit 比例收拢进一屏并水平居中于内容列（transform-origin 50% 0），默认就能看到大部分 / 全部地标，且六个地标关于整页中线对称；「更多线索」=Anchor 内联展开全部剩余线索而非浮层；点击地标只做镜头推近（≈1.06×）并在相机窗口内平移缩放，绝不滚动页面；「← 全图」、点击地图空白或双击地标 = 相机退回全图取景，同样不滚动页面）
+  新增 Camera / World / Viewport 轻量相机层：点击「人生地点」→ 镜头轻移靠近（transform translate3d + scale，非 left/top）→ 复用既有 pmFocusAnchor / Focus / Related / Route；「更多线索」在 v5.59 起改为 Anchor 内联展开（预渲染 .pm-latent 直接显示），FIELD NOTE 产品概念与 Clue Layer 浮层已移除；完整阅读统一交给「深入阅读」（openAnchorPanorama）。
+  不动：STATE_VERSION(7) / STORAGE_KEY / STEPS / 18 题 answer keys / PM_ANCHORS / PM_TRAILS / buildMapNodes / buildMapRelationships / findNodeRelations / Record Mode / Export / Experiment Feedback / 加密备份 / 无障碍语义。
+  无新增依赖 / 图片 / Canvas / WebGL / Three.js / GSAP；单 rAF(pmTick) 驱动 camera easing；reduced-motion 下禁相机动画、立即到达。
+-->
+<!--
 Original work created by Leah / 公众号作者@D小调片段记录
 Project: Inner Compass (内在罗盘)
-Version: v5.53
+Version: v5.68
 Created: 2026
-Updated: 2026-09-24
-v5.53 (2026-09-24)：开场白文案修订——Welcome Poster 主标题与 download.html 主标题由「把人生问题，慢慢变成自己的语言」改为「慢慢整理自己的生活线索，看见自己的当前坐标。」；零结构 / 零字段 / 零 answer key / 零数据模型改动，STATE_VERSION 维持 7。
+Updated: 2026-09-30
+v5.68 (2026-09-30)：顶栏改回静态页头（基于 v5.67；用户要求：Map Mode / 结果生成页的顶部导航栏不要固定悬浮在页面顶部，改为像普通导航栏一样静态放置，向下滚动浏览内容时随页面向上滚动并移出视野，要用按钮时自行滚回顶部）。① 撤销 v5.66 的吸顶：.topbar 基础规则由 position:sticky / top:14px 改为 position:relative / top:auto；body.on-summary .topbar 删去 position:sticky 与 top（保留背景 / 边框 / 投影 / 背景模糊）；**整个 @media (min-width:901px) 吸顶块删除** —— 它做的四件事全部撤回：.shell 的 padding-top 归零（恢复 20px）、top:0、border-top:0、border-radius:0 0 18px 18px（顶栏恢复完整卡片：四角 18px 圆角 + 上边框）、额外那道向下投影。② @media (max-width:720px) 的 .topbar { top: 8px } 同步改为 top:auto —— position 已是 relative，任何非 auto 的 top 都会产生硬位移。③ .summary-grid 的 scroll-margin-top 由 96px 降到 20px：那 96px 是专为吸顶栏预留的，吸顶取消后「完成 Journey → 定位到罗盘正文」的落点会凭空多出一段空白。④ 语义结果：Welcome / Journey / Summary 三个视图的顶栏现在完全同构 —— 都在文档流内静态放置、都随页面滚动移出视野，不再有任何视图的顶栏常驻视口。⑤ 实测（真浏览器 CDP，5 视口 × 3 视图 × 6 滚动位 = 90 个测量点）：顶栏「文档内位置」(rect.top + scrollY) 极差 **0.00px**（= 静态页头的定义式证明；sticky / fixed 会随滚动线性增长）；scrollY=0 时顶栏 top 桌面 20px / ≤720px 12px 且完整在视口内；滚到页面底部时 rect.bottom <= 0（完全移出视野）；填写总览抽屉开关后 body.overflow 正确还原且结论不变；Map Mode 点地标推近 / 回全图仍为**零页面滚动**。⑥ 影响面严格限定：5 处 CSS 声明 + 2 处滚动落点预留。零结构 / 零字段 / 零数据模型 / 零 state 改动：STATE_VERSION(7) / STORAGE_KEY / STEPS / 18 题 answer key / PM_ANCHORS / PM_TRAILS / buildMapNodes / buildMapRelationships / Map 相机交互 / Record Mode / Export / Experiment Feedback / 加密备份 / 无障碍语义全部未动。
+v5.67 (2026-09-30)：Map Mode 静止态「全图」水平居中（基于 v5.66；用户反馈：各个地标要相对整个结果生成页更居中）。① 现象与根因（真机实测，CDP 直驱本机 Edge headless）：静止态要把整张地图按 fitZ(<1) 收拢进一屏，而 .pm-world 的 transform-origin 是 0 0 —— 缩放是绕「左上角」进行的，于是缩小后的地图整块向左塌、右侧留出等宽空档。实测世界渲染盒 vs 舞台内容区中点：1440×900 为 177..950（中点 564）vs 177..1249（中点 713）→ 整幅左偏 149px；1280×800 左偏 200px；1080×646 左偏 220px；1920×1040 左偏 87px。观感即「六个地标全挤在页面左半边、右边空一大块」。② 改法（零 JS 平移、零新增变量）：把 .pm-world 的 transform-origin 由 0 0 改为 50% 0 —— 水平绕自身中点缩放，缩小后自动居中于舞台内容区（= --content 内容列 = 整页中线）；垂直仍从顶部起算，纵向几何与「负 margin-bottom 收口」完全不受影响。静止态 camX 依旧为 0，居中由 CSS origin 承担，不引入任何 JS 位移。③ 同步修正相机的逆变换 / 正变换：origin 移到 50% 后水平映射变为 screen = camX + originX*(1−camZ) + camZ*world，故 pmCameraTravelTo 的 Lx 反解与 camTX 计算各补一项 originX*(1−z)（否则推近后地标会水平偏离焦点 originX*(1−zoom)，1440 视口约 33px）；垂直原点仍是 0 → Ly / camTY 一字未动。pmCameraComputeFit 新增缓存 PM.worldW / PM.originX，与 PM.worldH 一样只在 render / resize / 展开更多线索时测量，绝不进 rAF。④ 实测结果（1440×900 / 1280×800 / 1080×646 三视口）：世界盒水平中点与内容区中点误差 0.0px；vision / direction 两个居中类地标误差 0.0px；values↔boundary、here↔experiment 两组左右对偶地标关于中线残差 0.0px；六个地标逐一推近的落点 σ 与 v5.66 完全一致（|Δσ| ≤ 0.1px）—— 即本版只移动「静止态的地图」，不改变任何一次推近取景的落点；点地标 → 回全图全程页面零滚动；无 pageerror / console.error。⑤ 影响面严格限定：Desktop（min-width:901px）相机块内的 .pm-world 一条 transform-origin + 相机函数两处 origin 项。移动端（≤900px）纵向流、Welcome / Journey 视图、顶栏、数据与阅读层一律未动。零结构 / 零字段 / 零数据模型 / 零 state 改动：STATE_VERSION(7) / STORAGE_KEY / STEPS / 18 题 answer key / PM_ANCHORS / PM_TRAILS / buildMapNodes / buildMapRelationships / Record Mode / Export / Experiment Feedback / 加密备份 / 无障碍语义全部未动。
+v5.66 (2026-09-29)：Map Mode 顶栏固定在网页顶部（基于 v5.64）。① 需求：进入 Map Mode 后，顶部导航栏要固定在网页顶端，不随页面向下滚走。② 真机实测（Edge headless + CDP，1440×900 / 1080×518 / 1080×646）：桌面端 .topbar 自 v5.48 起一直是 position:sticky; top:14px，且**从未失效** —— scrollY 0→1200 全部钉在 14px；祖先链只有 .shell(relative, overflow:visible) / body / html，无 overflow / transform / filter / contain 等 sticky killer；逐一开关 Detail 面板 / 填写总览 Drawer / 更多菜单 / 深入阅读之后，body.style.overflow 全部正确还原，sticky 仍有效。∴ 此前「没有固定住」的实际成因不是 sticky 失效。③ 真正的问题在「贴不贴住最上沿」：.shell 的 20px 上内边距让未滚动时的顶栏落在 y=20，叠上 top:14px 与 18px 上圆角，它读起来是一张离顶悬浮的卡片，而不是一条固定在网页顶部的栏。④ 改法（纯 CSS，零 JS、零占位元素、零文档流扰动）：(min-width:901px) 下 body.on-summary .shell 的 padding-top 归零（顶栏未滚动时即在 y=0），body.on-summary .topbar 的 top 由 14px 收到 0、去掉上边框、上圆角改直角、补一道向下的柔和投影 —— 于是它从「离顶悬浮的卡片」变成「钉在网页最上沿的一条栏」，滚到任何位置都在最上面。⑤ 仍用 position:sticky（保持在文档流内）：不需要占位元素、不需要 JS 量高度，也不会像 position:fixed 那样把下方内容整体顶上去。⑥ 生效范围严格限定桌面 Summary 视图：移动端（≤900px）与 Welcome / Journey 视图的 .topbar 规则一字未动（那两个视图本来就是 position:relative）。零结构 / 零字段 / 零数据模型 / 零 state 改动：STATE_VERSION(7) / STORAGE_KEY / STEPS / 18 题 answer key / PM_ANCHORS / PM_TRAILS / buildMapNodes / buildMapRelationships / Map 相机交互 / Record Mode / Export / Experiment Feedback / 加密备份 / 无障碍语义全部未动。注：v5.65（顶栏安全区 · 相机取景预算扣除）已按用户要求撤回，未采用，原件保留为 v5.65_RETRACTED。
+v5.64 (2026-09-29)：双击地标回到「全图」（基于 v5.63，用户定案）。① 新增 onCompassDblClick（document 级委托，与既有 onCompassClick 在同一处绑定）：在 Desktop 地图窗口内双击地标（含其标题 / 注记，但排除「深入阅读 / 关键词 tag / 更多线索 / jump」等子交互元素）即调用 pmCameraOverview() —— 相机退回全图取景并清空 Focus，全程零滚动。② 让「单击 = 镜头推近、双击 = 回到全图」成为一对对称开关：v5.48 时代这个手感来自「第二次点击落在地标被相机移走后的空白 viewport」的副作用；v5.63 的相机窗口把地标固定在窗口内，第二次点击不再落空，双击因此失去回落路径（v5.63 实测双击后仍停在 camZ≈1.055、focus 仍为该地标），本版把它显式接回。③ 移动端（stacked）与 reduced-motion 下不接管双击，保持原生语义。零结构 / 零字段 / 零数据模型 / 零 state 改动：STATE_VERSION(7) / STORAGE_KEY / STEPS / 18 题 answer key / PM_ANCHORS / PM_TRAILS / buildMapNodes / buildMapRelationships / Record Mode / Export / Experiment Feedback / 加密备份 / 无障碍语义全部未动。
+v5.63 (2026-09-29)：Map Mode 地标交互感回归「全图」（基于 v5.62，用户定案）。① 静止态改回「全图」取景：进入地图即把整张地图按 fit 比例收拢进一屏（6 地标实测 world 1248px / 视口 758px → 0.607×，与 v5.5x 相机版「全图」一致），默认就能看到大部分 / 全部地标 —— pmCameraComputeFit 恢复真实 fit 计算（z = clamp(0.55, 1, targetH/worldH)，targetH = clamp(620, 视口高, 1080)）。② 窗口高度精确收口：transform: scale() 不改变布局高度，故静止态给 .pm-world 一个负 margin-bottom（-worldH*(1-fitZ)）把「缩放省下的高度」抵掉 —— 窗口正好包住全图，页面不再为地图多留一屏空白、也没有裁切；PM.worldH / PM.fitZ 只在 render / resize / 展开更多线索时测量，绝不进 rAF。③ 相机推近期间窗口高度保持稳定：由 .pm-stage.is-camera 打开 overflow:hidden，相机只在窗口内平移缩放（推翻 v5.57 的「全景溢出页面」根因），停稳后由 pmCameraArrive 按「是否停在地标上」决定保留或解除裁切。④ 彻底删除「回到全图 = 整页滚到顶」：pmCameraOverview 移除 window.scrollTo({top:0})，pmCameraTravelTo 移除 scrollIntoView —— 这正是用户报告的「双击一个地标后跳到 map mode 顶部」的根因（双击第一次点击被相机 transform 把地标移走，第二次点击落在原地已成空白 viewport，命中事件兜底分支 else-if(pmCamVp) → pmCameraExit → pmCameraOverview → 整页滚到顶；实测 1440×900 真实双击 scrollY 886→0、点空白 900→0，滚动日志均指向 pmCameraOverview）。⑤ 「← 全图」按钮首次显式绑定处理器（此前无任何监听，靠同一兜底分支碰巧生效）。⑥ 相机焦点改用「窗口高度」而非 window.innerHeight（窗口已一屏高，不再依赖页面滚动位置）。⑦ 「更多线索」展开 / 收起后重算地图高度：静止态重新取景保持「一屏全图」，相机推近态只同步窗口基准、不打断当前取景。⑧ reduced-motion 下相机立即到达「全图」取景（不再退回 identity 自然尺寸）。零结构 / 零字段 / 零数据模型 / 零 state 改动：STATE_VERSION(7) / STORAGE_KEY / STEPS / 18 题 answer key / PM_ANCHORS / PM_TRAILS / buildMapNodes / buildMapRelationships / Record Mode / Export / Experiment Feedback / 加密备份 / 无障碍语义全部未动。
+v5.62 (2026-09-29)：问卷重建滚动收口（基于 v5.61）。v5.60/61 的 refreshQuestionInput 已记录滚动位置并在重建后还原，但实测仍残留约 20px 跳动——根因是 focus 的滚动纠正可能在当前任务之后异步发生（即便传了 preventScroll），立即的 scrollTo 纠正跑得太早、没兜住。本版在「立即校正」之外再于 requestAnimationFrame 帧末校正一次，彻底归零。Map Mode 点击地标的滚动收口（v5.61）不变。修复由真浏览器 E2E（CDP 直驱本机 Edge headless，零联网 / 零 npm 包）复现并验证：Map 可见地标点击零跳动、问卷点未选标签 / 打字后零跳动。零结构 / 零字段 / 零数据模型 / 零 state 改动：STATE_VERSION(7) / STORAGE_KEY / STEPS / 18 题 answer key / PM_ANCHORS / PM_TRAILS / buildMapNodes / buildMapRelationships / Record Mode / Export / Experiment Feedback / 加密备份 / 无障碍语义全部未动。
+v5.60 (2026-09-29)：修复交互滚动跳动（基于 v5.59）。① Map Mode：点击地标不再强制 scrollIntoView 居中——那会把已可见的地标向上推、页面跳动；改为仅当地标完全不在视口内时才用 nearest 带入视野，可见时不动页面。② 问卷：选项 / 标签点击触发的局部重建（refreshQuestionInput）现在保留滚动位置与焦点（重建前记录 scrollY 与激活元素，重建后还原，焦点用 preventScroll），避免选中选项后页面跳动或焦点丢失。零结构 / 零字段 / 零数据模型 / 零 state 改动：STATE_VERSION(7) / STORAGE_KEY / STEPS / 18 题 answer key / PM_ANCHORS / PM_TRAILS / buildMapNodes / buildMapRelationships / Record Mode / Export / Experiment Feedback / 加密备份 / 无障碍语义全部未动。
+
+v5.59 (2026-09-29)：Map Mode 文档流整页滚动 + 「更多线索」=Anchor 内联展开（基于 v5.58）。删除 Desktop 的 .pm-clue-layer / Field Note 浮层与 renderMoreCluesHTML / openPmClueLayer / closePmClueLayer / pmClueCloseForTravel / pmPositionClueLayer 全部浮层逻辑；「＋N 更多线索」在 Desktop 与 Mobile 统一为 Anchor 内联展开（直接显示预渲染的 .pm-latent 全部剩余线索，沿用 .pm-sat 地图注记样式，不引入新卡片/面板/chips）；相机静止态改 identity（z:1、不缩放适配窗口），点击地标轻推近≈1.06×并 scrollIntoView 居中，Overview 复位 identity + 滚顶；.pm-world 由 position:absolute;inset:0 固定窗口改为 content 高度驱动的文档流（.pm-viewport 去 overflow:hidden + max-height 裁剪，保留 min-height），背景等高线/trail 跟随内容高度；「深入阅读」仍为唯一完整阅读入口（buildFieldNoteModel + renderFieldNoteGroupsHTML + .fn-* 全部保留）。零结构 / 零字段 / 零数据模型 / 零 state 改动：STATE_VERSION(7) / STORAGE_KEY / STEPS / 18 题 answer key / PM_ANCHORS / PM_TRAILS / buildMapNodes / buildMapRelationships / Record Mode / Export / Experiment Feedback / 加密备份 / 无障碍语义全部未动。
+
+v5.58 (2026-09-29)：Map Mode 相机全景 / 推近再平衡（基于 v5.57）。修复两类反馈：① 全景地标溢出页面——根因 v5.57 把 Desktop .pm-viewport 改为 overflow:visible + max-height:none、而 .pm-world 仍是 position:absolute;inset:0，地图内容塌出舞台区域、叠到下方版块。本版恢复固定相机窗口（Desktop .pm-viewport overflow:hidden + max-height:clamp(680px,86vh,980px)），整张地图收拢进窗口、不再溢出。② 全景地标过大、点击推进感不明显——根因 v5.57 静止态 camZ=1 且点击只做 1.05× 轻推、无居中平移。本版恢复相机居中推近（pmCameraTravelTo 平移 + 缩放≈1.06×，推进感清晰），并把缩放下限由 v5.50 的 0.5 抬到 0.62、Desktop 地标纵向 margin-bottom 收紧约 25%，典型数据下全景约 0.78–0.9×，字号明显大于旧 0.5 且保持清晰可读；窗口放不下时按真实比例继续收，保证 6 个地标在 overview 都可见、不裁剪。零结构 / 零字段 / 零数据模型 / 零 state 改动：STATE_VERSION(7) / STORAGE_KEY / STEPS / 18 题 answer key / PM_ANCHORS / PM_TRAILS / buildMapNodes / buildMapRelationships / Record Mode / Export / Experiment Feedback / 加密备份 / 无障碍语义全部未动。
+
+v5.57 (2026-09-28)：Map Mode 静止态可读性修复（基于 v5.56 相机最终版）。根因：pmCameraComputeFit 在 Rest/Overview 把整张 .pm-world 缩放到视口高度（worldH>vpH 时 clamp 到 0.5×），导致地标字体/板块在静止态过小、点击才恢复到 ≈1.05×。本版：① pmCameraComputeFit 静止态改为自然尺寸（camZ=1、无平移），点击地标仍由 pmCameraTravelTo 做轻量推近（scale≈1.05）+ Focus + Clue；② pmCameraTravelTo 取消整图平移（避免自然尺寸下留出空白），仅保留推近；③ Desktop .pm-viewport 由 overflow:hidden + max-height 固定窗口改为 overflow:visible + max-height:none，地图回到自然尺寸、随页面滚动阅读（与 v5.46 文档流一致）。零结构 / 零字段 / 零数据模型 / 零 state 改动：STATE_VERSION(7) / STORAGE_KEY / STEPS / 18 题 answer key / PM_ANCHORS / PM_TRAILS / buildMapNodes / buildMapRelationships / Record Mode / Export / Experiment Feedback / 加密备份 / 无障碍语义全部未动。
+
+v5.56 (2026-09-28)：Map Mode 信息架构减法（以 v5.50 相机实验版为基，移植 v5.55 的 Map Reading / Evidence Semantic Layer）。① 移除用户可见的「FIELD NOTE」产品概念：不再有 FIELD NOTE 标签 / 读者式「N 组记录 / M 项线索」页脚统计；保留纯派生 buildFieldNoteModel(data, anchorKey) 作地图阅读模型（按 STEPS question.type 派发 5 种 presentation mode，零文本推断）。② 阅读层级收敛为 L1 地标 → L2 更多线索 → L3 深入阅读 → Record：L2「更多线索」（renderMoreCluesHTML）只列密度超限的隐藏线索（tag 名 / 带正文项的短标题，不打印全文）；tag-cluster / classified-cluster 的 tag 点击仅聚焦（pmFocusEvidenceTag，.fn-tag.is-focus，不打开第二套阅读器）；ranked-items 词 / structured 字段 / single 正文点击走既有 openCompassDetail 读完整原文。③ L3「深入阅读」（openAnchorPanorama）= 整个地标的完整阅读，经 buildFieldNoteModel + renderFieldNoteGroupsHTML 渲染全量原文，不截断、不摘要、不 AI、不关键词匹配；与「更多线索」共用同一语义结构与 Detail Panel（activateCompassDetail）。④ 事件分流明确：.pm-sat 组内 tag → 仅聚焦；.pm-sat 独立正文 → Detail；.fn-tag → 仅聚焦；.fn-word/.fn-item-open → Detail；.pm-read → openAnchorPanorama。⑤ 相机交互保留：pmCameraTravelTo / pmCameraExit 轻量镜头位移，复用 Focus / Related / Clue Layer / Detail；reduced-motion 立即到达。⑥ 视觉沿用 Personal Cartography / Cartographic Annotation：无卡片 / 无胶囊 / 无 dashboard / 无第二 modal；新增 .fn-* 注记样式 + reduced-motion 覆盖。零结构 / 零字段 / 零数据模型 / 零 state 改动：STATE_VERSION(7) / STORAGE_KEY / STEPS / 18 题 answer key / PM_ANCHORS / PM_TRAILS / buildMapNodes / buildMapRelationships / Record Mode / Export / Experiment Feedback / 加密备份 / 无障碍语义全部未动。
 v5.49 (2026-09-14)：内容层打磨三件事（标签上限一致性 + 完整记录导出 PDF + Phase 7 第二问文案）。① work_constraints（Phase 5 第二问，multitag）标签逻辑：预设与自定义本就共用同一个 question.max（合计计数），本版把「看起来也一致」补齐——hint 明确「预设词与自定义词一起计算，合计不超过 3 项」；新增 .tag-counter 实时计数器「已选 N / 3」；新增 .tag-overlimit 温和重选提示（旧存档越界时全部保留、绝不静默删除，提示「你之前选了 N 项，现在这题最多 3 项」，并在降到 ≤3 之前禁止继续添加）；选中数量达上限后，未选中的标签置灰并标 aria-disabled，预设与自定义两条路径统一给出「最多只能选择 N 项，可先取消一项再添加」（此前预设路径是静默无反应）。注意分工：core_values 仍是 valuesorter，越界走 v5.48 的一次性截断（无效状态自动修复）；work_constraints 的 max 曾是 5、后降为 3，第 4/5 项是用户在旧上限下真实选过的，故走温和重选（合法旧选额交还用户自己取舍）。② 「下载我的完整记录」由 Markdown 改为 PDF：本项目是单文件离线应用（无 CDN / 无第三方库 / 不内嵌字体），不手写 PDF（中文必须内嵌字体、体积不可行），改为新增 buildReportHTML() + exportReportPDF() 生成自包含 A4 打印视图（系统字体、真实中文、Compass Summary → Journey 记录 → 试过之后，与 exportMarkdown 同口径同覆盖），再触发浏览器原生打印，在打印对话框选「另存为 PDF」即得任何设备都能打开的 PDF；环境不支持打印时退回下载同内容的 .html，保证内容不丢。按钮文案改为「下载我的完整记录（PDF）」。高级导出里的「导出 Markdown 文本」与 exportMarkdown() 本体保持不变。③ Phase 7 第二问（experiment_action）文案微调：guide 改为「可以先试一次、做几天、找个人聊聊、观察一阵子」「尽量写具体一点：准备做什么，是试一次，还是持续一段时间」；脚手架第一个问题改为「它最小可以做到什么程度？是试一次、做几天，还是观察一段时间？」；第二个问题改为「回头看看前面写下的内容：它和哪些想法有点关系？」；4 条示例从提示词里拆成独立的示例块（新增可选字段 scaffold.examplesLabel / scaffold.examples，渲染层 .scaffold-examples-label），示例文字同步为「聊聊他的日常」。明确未改：STEPS 结构 / 阶段数 / 题目数 / id / type / max（work_constraints 仍 max:3、adaptability 仍 max:5、core_values 仍 max:5）、STATE_VERSION(7)、STORAGE_KEY、buildCompass / buildMapNodes / buildMapRelationships / findNodeRelations / PM_ANCHORS / PM_TRAILS、Map Mode 与 Record Mode 呈现、Insight（继续探索）/ 加密备份 / 导出 JSON / exportMarkdown() 本体 / Experiment Feedback 数据层。
 v5.48 (2026-09-14)：价值排序上限修复（一次性数据迁移）。修复「引导语写着最多 5 项、答案却出现 6 项」的错位：core_values 等 valuesorter 题的选额上限 UI 一直为 5（连点 6 个 chip 停在 5，历史 jsdom 已验证），但旧版存档 / 导入数据里可能残留超过上限的答案。新增 clampValueMaxSelections()，在 loadState() 与 applyImportedState() 两个入口把超过题目 max 的项截断到上限，只截断、不补充、不改顺序——保留用户自己排好的前 max 项（即此刻最看重的几项）；带幂等标记，正常路径只跑一次。零结构 / 零字段 / 零数据模型 / 零 state 改动：STATE_VERSION 维持 7，STORAGE_KEY / STEPS / 18 题 id 与每题 type·max / 6 个 PM_ANCHORS / buildMapNodes / buildMapRelationships / 地图呈现 / Record / Map / Insight / 加密备份 / 导出全部未动。
 v5.47 (2026-09-14)：Map Mode — Interactive Cartography（Motion Grammar 重构）。目标不是增加动画数量，而是把地图从「带动画的个人方向海报」升级成「会回应用户注意力的个人地图」。① P0 建立 4 个明确状态 Rest / Explore(Hover) / Focus / Detail(Clue)，不再让一切状态靠 opacity 完成：Rest = contour 96s 极慢极弱地形呼吸（无 dash movement / 无全局 parallax / 无粒子 / 无 glow）+ trail opacity .18 + anchor 完整可读；Explore = Local Attention Field（nearest 1 / 半径内 .90 / 半径外 .86），删除 v5.46 的全局 pointer parallax 与 `.is-hovering .pm-anchor{opacity:.62}`，pointer 只「改变这块地形的可见度」不移动地图；Anchor Hover 只做 marker 一次性 420ms 微动画 + 标题下划线轻微强化 + 真实 PM_TRAILS preview + 局部地形响应，绝不打开 Detail Panel；Focus = 一次明确的地图叙事（Step A 当前 rest→focus 0ms → Step B related 提升 130ms → Step C 真实 PM_TRAILS route reveal 780ms / 600–900ms 一次性 stroke-dashoffset 显现，完成后停止）。② P1 Trail Motion 分级：Rest .18 / Related .32 / Active .64，infinite `.pm-trail-current` 从 15s·.04 降为 26s·.022（环境层，不得成为第一眼感知的动画）。③ P1 Local Contour Response：`#pmFieldInk` userSpaceOnUse 径向渐变（cx/cy 跟随注意力中心）承担**局部加深**——Rest 时核心档与边缘档同值（墨色均匀，不存在「假的注意力中心」），只有注意力出现才把核心档由 .10 拉到 .14；半径外的退让交给 `.pm-contours` mask-image（--field-k 控制衰减 ≤14%，恰好等于地标 far 档 .86）。实测：注视处 1.40× / 半径外 0.86× / 整幅 ≈0.99×。几何与 dasharray 永不变动——注意力改变可见度，而不是整张地图同步运动。④ P2 Anchor 视觉语言继续去卡片化：marker 从 Rest 的小点（::after）在 Explore/Focus 展开成 crosshair（::before，一次性 pmMarkTick），标题下划线 scaleX 从 0→.45→1，Focus 时 marker 仅放大到 1.18（禁止 scale > 1.03 的卡片膨胀、大面积发光、强 shadow）。⑤ P2 Clue Layer 向 Field Note / Cartographic Annotation 靠拢：`NN / 地标名` → FIELD NOTE → 测绘分隔线 → 记录列表 → 底部「还有 N 条记录」；架构（.pm-clue-layer / 无 backdrop / 不移动 Anchor / 点击走既有 Detail Panel）一字节未动。⑥ P2 Map Intro 只留三句：顶部两句「这张图不替你决定方向。它只是把你刚才写下的线索放回同一张地图。」+ 一行阅读顺序（生活图景 → 价值 → 边界 → 工作 → 现实 → 尝试）+ 最下方极轻提示「移动鼠标探索 · 点击地标深入」。⑦ P2 Mobile 保持 Vertical Perceptual Field：IntersectionObserver 的进/出升级为「最靠近视口中心带」的 scroll proximity（当前 1 / 上下相邻 .90 / 其余 .88，从不低于 .88），marker 激活 + 路径注记轻微显现，不位移不缩放不自动播放；禁止 horizontal pan / drag-to-pan / desktop pointer parallax。⑧ Reduced Motion 关闭全部 contour 呼吸 / route reveal / marker / parallax / mask，完整保留 focus / related / hover 语义状态 / route visibility / clue layer / 可访问性焦点。零结构 / 零字段 / 零数据模型改动：STATE_VERSION 维持 7，STORAGE_KEY / STEPS / answer key / PM_ANCHORS / PM_TRAILS / buildMapNodes / buildMapRelationships / findNodeRelations / PM_TRAIL_SHAPE / PM_DENSITY / buildPerceptualModel / Record Mode / Detail Panel / Experiment Feedback / Export / 加密备份 / 继续探索 全部未动。
@@ -100,20 +120,26 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
 <head data-page-node-id="fsJHWicoCbU8EXL52OWWk8">
     <meta charset="UTF-8" data-page-node-id="o6k7vl6EEXyy6E8KBVVBbV">
     <meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="l34J60i0HpDC5pX2nzDAP9">
-    <meta name="description" content="内在罗盘 v5.53：一条更轻、更清晰、更可完成的自我探索 Journey。新增独立下载页与「下载空白版」入口，读者无需安装、浏览器打开即用；Map Mode 以 Contour Field 场域呈现你写下的线索，不替你下结论，只帮你看见自己写下的方向。" data-page-node-id="aqbMOwbMCxAwu7dNuKWGFD">
+    <meta name="description" content="内在罗盘 v5.68：以🪐行星意象为线索的自我探索 Journey。Map Mode 信息架构减法保留（L1 地标 → L2 更多线索 → L3 深入阅读 → Record）；静止态即「全图」——整张地图收拢进一屏，默认就能看到大部分 / 全部地标；点击地标只做镜头推近（≈1.06×）并在窗口内平移缩放，「← 全图」、点击空白或双击地标退回全图取景，全程绝不滚动页面。不替你下结论，只帮你看见自己写下的方向。" data-page-node-id="aqbMOwbMCxAwu7dNuKWGFD">
     <meta name="author" content="Leah / 公众号作者@D小调片段记录" data-page-node-id="AmW93bM1S5epwS8betUfsQ">
     <meta name="copyright" content="© 2026 Leah / 公众号作者@D小调片段记录. All rights reserved." data-page-node-id="GWB0buNZa2ESDHYRLlJ0Hg">
-    <meta name="version" content="v5.53" data-page-node-id="RmwIffWpkQilzimONxuS7W">
+    <meta name="version" content="v5.68" data-page-node-id="RmwIffWpkQilzimONxuS7W">
     <!-- 主题色会随亮/暗模式动态更新（见 setTheme） -->
     <meta name="theme-color" id="themeColorMeta" content="#f6f2eb" data-page-node-id="JE1p2dLsrY89y74ph79BPL">
     <link rel="canonical" href="https://magiccoai.github.io/Inner-Compass/" data-page-node-id="UDiTXY7L6TQDFqBW3PR3hk">
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%F0%9F%AA%90%3C/text%3E%3C/svg%3E" data-page-node-id="ubAM1NOsv0OnaAsVaShYjj">
-    <!-- favicon 已内联为 SVG data URI（🪐），无需外部 favicon.ico / apple-touch-icon / manifest，避免部署后 404 -->
+    <!-- 站点图标与 PWA -->
+    <link rel="icon" type="image/x-icon" href="favicon.ico" sizes="16x16 32x32 48x48" data-page-node-id="DWhtdYOuzIjn0REmtyHnoq">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" data-page-node-id="bjewGEZLQuQduh5aHQWy2n">
+    <link rel="manifest" href="manifest.webmanifest" data-page-node-id="OOmHfeXxuxblSkYNgMETPC">
     <meta name="mobile-web-app-capable" content="yes" data-page-node-id="TztnxVUSZDFbmx8gbGUmQS">
     <meta name="apple-mobile-web-app-capable" content="yes" data-page-node-id="fsUHWackV9dzvvmMSy2bFA">
     <meta name="apple-mobile-web-app-status-bar-style" content="default" data-page-node-id="PBTXi50bBCM6bzWaqFaEtW">
     <meta name="apple-mobile-web-app-title" content="内在罗盘" data-page-node-id="9i6KFBAthhIYjkcNpCwwLM">
-    <!-- 字体：仅用系统字体栈（Noto Sans SC / Microsoft YaHei / PingFang SC / system-ui），不加载任何外部字体，保持单文件离线、无外部请求 -->
+    <!-- 中文字体优先：Noto Sans SC（web）→ 系统字体 fallback → sans-serif -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" data-page-node-id="XEGGGIqPoC1OqiQabddu13">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin data-page-node-id="4hG1mqyzDAwERR8BKurrxi">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" data-page-node-id="rk95d20LZ9eWxffFHFCmb6">
     <title>内在罗盘 v5</title>
     <style>
         :root {
@@ -208,8 +234,9 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
         }
 
         .topbar {
-            position: sticky;
-            top: 14px;
+            /* v5.68：静态页头 —— 留在文档流内，随页面一起向上滚出视野（不再吸顶） */
+            position: relative;
+            top: auto;
             z-index: 20;
             display: flex;
             align-items: center;
@@ -628,6 +655,24 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
             min-height: 66vh;
         }
 
+        /* ===== Camera Map Experiment：填写视图「回到我的罗盘」+ 一次性到达提示 ===== */
+        .journey-back-link {
+            display: inline-block; margin: 0 0 14px;
+            font: inherit; font-size: 13px; line-height: 1;
+            color: #6b7b8c; text-decoration: none;
+            border: 1px solid rgba(60,60,60,.16); border-radius: 999px; padding: 7px 13px;
+            cursor: pointer; background: transparent;
+            transition: background .2s ease, color .2s ease, border-color .2s ease;
+        }
+        .journey-back-link:hover { background: rgba(107,123,140,.08); color: #3a3a3a; }
+        .journey-back-link:focus-visible { outline: 2px solid #6b7b8c; outline-offset: 2px; }
+        .journey-arrival-hint {
+            display: flex; align-items: flex-start; gap: 12px; margin: 0 0 16px; padding: 12px 14px;
+            background: rgba(107,123,140,.08); border: 1px solid rgba(107,123,140,.2); border-radius: 12px;
+        }
+        .journey-arrival-hint p { margin: 0; font-size: 13px; line-height: 1.55; color: #3a3a3a; flex: 1; }
+        .journey-arrival-hint .ghost-btn.small { flex: none; padding: 5px 10px; font-size: 12px; }
+        @media (prefers-reduced-motion: reduce) { .journey-back-link { transition: none; } }
         .step-kicker {
             display: flex;
             align-items: center;
@@ -1732,13 +1777,6 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
             transform: translateX(0);
         }
 
-        /* v5.51 / A11Y-01 (P2)：关闭态（无 .active）的侧面板移出可聚焦序列，
-           避免键盘 Tab 落到屏外元素。打开态仍 visible，focus trap 与动画不受影响。 */
-        .compass-detail-panel:not(.active),
-        .progress-drawer:not(.active) {
-            visibility: hidden;
-        }
-
         .progress-drawer-head {
             padding: 22px;
             border-bottom: 1px solid var(--line);
@@ -2113,7 +2151,6 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
             .compass-actions,
             .continue-exploring,
             .compass-detail-panel,
-            .pm-clue-layer,
             .progress-drawer,
             .compass-detail-backdrop,
             .progress-drawer-backdrop {
@@ -2189,7 +2226,8 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 16px;
-            scroll-margin-top: 96px; /* 为吸顶栏预留空间，跳转后罗盘正文不被遮挡 */
+            /* v5.68：顶栏不再吸顶，无需再为它预留 96px；只留一点滚动落点的呼吸间距 */
+            scroll-margin-top: 20px;
         }
 
         /* ===== v5.6 Insight Layer ===== */
@@ -2620,15 +2658,26 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
             border: 1px solid var(--line);
         }
 
-        /* Summary 视图：恢复完整功能栏 */
+        /* Summary 视图：恢复完整功能栏（v5.68 起与 Welcome / Journey 同构：静态页头，随页面滚动移出视野） */
         body.on-summary .topbar {
-            position: sticky;
-            top: 14px;
             background: var(--bg-soft);
             border: 1px solid var(--line);
             box-shadow: var(--shadow-soft);
             backdrop-filter: blur(18px);
         }
+
+        /* v5.68（用户要求，撤销 v5.66）：Summary 视图的顶栏改回「普通页头」——
+           静态放置在页面顶部，向下滚动浏览内容时随页面一起向上滚出视野；
+           需要再次使用「开场说明 / Dark Mode / 填写总览 / 更多」时，自行滚回页面顶部即可。
+           这里删掉 v5.66 的 (min-width:901px) 吸顶块，它做了四件事，现在全部撤回：
+             · body.on-summary .shell { padding-top: 0 }  → 撤回，.shell 恢复 20px 上内边距；
+             · top: 0 / border-top: 0 / border-radius: 0 0 18px 18px → 撤回，顶栏恢复完整卡片
+               （四角 18px 圆角 + 上边框 + --shadow-soft）；
+             · 额外那道向下的投影 → 撤回（它是给「钉住的栏」做的重量感，静态卡片不需要）。
+           配套：.topbar 本体（见上方基础规则）已由 position:sticky 改回 relative、top 归 auto。
+           为什么不再吸顶：v5.66 的常驻栏会在滚动时吃掉视口顶部 76px（1080×646 约占 11.8%），
+           并在「地图顶端贴视口顶端」时遮掉 01 生活图景的整条标题；
+           静态页头不遮挡任何内容，也不再需要为它预留 scroll-margin。 */
         body.on-summary .save-state,
         body.on-summary .toolbar-secondary {
             display: inline-flex;
@@ -2670,8 +2719,9 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
                 padding-top: 12px;
             }
 
+            /* v5.68：position 已是 relative，top 必须归 auto（否则会整体下移 8px） */
             .topbar {
-                top: 8px;
+                top: auto;
                 border-radius: 18px;
                 align-items: flex-start;
                 flex-direction: column;
@@ -3510,7 +3560,9 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
         .pm-anchor[data-anchor="direction"]  { max-width: 480px; margin: 0 auto; }
         .pm-anchor[data-anchor="here"]       { max-width: 380px; margin: 0 auto 0 0; }
         .pm-anchor[data-anchor="experiment"] { max-width: 380px; margin: 0 0 0 auto; }
-        .pm-anchor { margin-bottom: clamp(40px, 6vh, 78px); }
+        /* v5.58：收紧纵向节奏（约 25%），让 6 个地标的整张地图更矮，
+           相机 fit 比例自然更高（全景字号更大），同时不改变 zigzag 交错与 block 流（绝不重叠）。 */
+        .pm-anchor { margin-bottom: clamp(30px, 4.4vh, 60px); }
     }
 
     /* ---- 3. Atmosphere：等高线 + 极轻微地形辉光（不是装饰粒子） ---- */
@@ -3641,6 +3693,70 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
         font-style: normal;
     }
 
+    /* ===== Camera Map (v5.50 相机版设计) =====
+       Viewport -> World -> Camera。世界(.pm-world) 由 CSS-transform 相机平移/缩放；
+       大气层(.pm-atmos) 以 ~0.5x 反向位移形成 2.5D 景深。只动 transform。
+       Desktop 才启用（<=900px 保持纵向流）；reduced-motion 下不位移。 */
+    .pm-viewport { position: relative; }
+    @media (min-width: 901px) {
+        /* v5.63：静止态 = 「全图」——整张地图按 JS 算出的 fit 比例收拢进一屏（默认就能看到大部分地标）。
+           .pm-viewport 的高度不再写死 clamp：静止态由 .pm-world 的负 margin-bottom 精确抵掉
+           「缩放省下来的高度」，窗口因此正好包住全图 —— 不多留空、不裁切、不产生第二个滚动区。
+           相机推近时由 .pm-stage.is-camera 打开裁切，镜头只在窗口内平移 / 缩放，绝不溢出到下方版块。 */
+        .pm-viewport { overflow-x: clip; max-height: none; }
+        .pm-stage.is-camera { overflow: hidden; }
+        .pm-world {
+            position: relative;
+            will-change: transform;
+            transform: translate3d(calc(var(--cam-x, 0) * 1px), calc(var(--cam-y, 0) * 1px), 0) scale(var(--cam-z, 1));
+            /* v5.67：transform-origin 由 0 0 改为 50% 0（水平居中、垂直仍是顶部）。
+               原因：静止态「全图」要把整张地图缩到 fitZ(<1)，若从左上角缩放，缩小后的地图
+               会整块向左塌 —— 实测 1440×900 六个地标整体延伸 177..950，中点 564，
+               而舞台内容中点 713，整幅地图左偏约 150px；1080×646 更偏到 −220px。
+               把水平原点放到自身中点后，缩放天然绕地图中心进行，静止态即水平居中于
+               舞台内容区（= --content 内容列 = 整页中线），无需任何 JS 平移。
+               垂直方向保持 0（顶部对齐）→ 纵向几何、负 margin-bottom 收口全部不受影响。
+               注意：水平映射因此多出一项 originX*(1−camZ)，pmCameraTravelTo 的逆变换
+               与正变换已同步带上它（见该函数内注释），否则推近后地标会偏离焦点。 */
+            transform-origin: 50% 0;
+        }
+    }
+    @media (max-width: 900px) {
+        .pm-viewport { overflow: visible; max-height: none; }
+        .pm-world { position: static; transform: none !important; }
+    }
+    .pm-atmos {
+        transform: translate3d(calc(var(--cam-x, 0) * -0.5px), calc(var(--cam-y, 0) * -0.5px), 0);
+        transform-origin: 0 0;
+    }
+    .pm-anchor.is-arrived { animation: pmArrive .5s ease-out; }
+    @keyframes pmArrive {
+        0%   { transform: scale(1); }
+        45%  { transform: scale(1.03); }
+        100% { transform: scale(1); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .pm-anchor.is-arrived { animation: none !important; }
+        .pm-atmos { transform: none !important; }
+    }
+    /* ===== 返回全图按钮（安静、非游戏 UI；固定在视口，不随世界缩放） ===== */
+    .pm-overview-btn {
+        position: absolute; top: 14px; right: 14px; z-index: 40;
+        font: inherit; font-size: 13px; line-height: 1; letter-spacing: .02em;
+        padding: 8px 14px; border-radius: 999px;
+        background: rgba(250, 249, 246, .96); color: #3a3a3a;
+        border: 1px solid rgba(60, 60, 60, .24); cursor: pointer;
+        opacity: 0; pointer-events: none; transform: translateY(-4px);
+        transition: opacity .25s ease, transform .25s ease, background .2s ease;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
+    }
+    .pm-overview-btn.is-visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
+    .pm-overview-btn:hover { background: #fff; }
+    .pm-overview-btn:focus-visible { outline: 2px solid #6b7b8c; outline-offset: 2px; }
+    @media (max-width: 900px) {
+        .pm-overview-btn { top: 10px; right: 10px; font-size: 12px; padding: 7px 11px; }
+    }
+    @media (prefers-reduced-motion: reduce) { .pm-overview-btn { transition: none; } }
     /* ---- 4. Trail 层：path，不是 graph edge ---- */
     .pm-trail-layer {
         position: absolute;
@@ -3890,11 +4006,6 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
         color: var(--ink-faint);
         white-space: nowrap;
     }
-    /* v5.51 / A11Y-03 (P2)：浅色主题下 .pm-eyebrow 在 --bg-soft 上对比度 4.295:1 未达 AA 4.5:1，
-       加深到 #646e64（≈4.65:1）；仅浅色主题覆盖，深色主题沿用 --ink-faint 不受影响。 */
-    body:not(.dark) .pm-eyebrow {
-        color: #646e64;
-    }
     /* v5.44：01–06 站点编号——测绘顺序，不是新的层级、不是新的语义。 */
     .pm-station-index {
         flex: none;
@@ -4069,6 +4180,9 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
        否则 li 仍是 flex item，会在 .pm-constellation 留下多余 gap。 */
     .pm-sat--latent { display: none; }
     .pm-latent { display: none; }
+    /* v5.59：Desktop 与 Mobile 统一为 Anchor 内联展开（文档流，非浮层） */
+    .pm-anchor.is-open .pm-latent { display: block; }
+    .pm-anchor.is-open .pm-sat--latent { display: inline-flex; }
 
     /* v5.42 Desktop：Constellation 从「胶囊 tag」回到「轻量文字节点」——
        默认只有文字 + 语义点，hover / focus 才出现极轻的底与边。
@@ -4150,143 +4264,116 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
     .pm-jump:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     .pm-anchor .trailhead-feedback { margin-top: 14px; }
 
-    /* ---- v5.42 Clue Layer：轻量线索阅读层（不是 modal，不是 Drawer） ----
-       职责只有一句：「让我看看这个地标还有哪些东西。」
-         · 不使用 backdrop / 不锁 body scroll / 不移动任何 Anchor
-         · 内容过多只在自身区域滚动
-         · 点击某条 clue → 既有 Compass Detail Panel 读完整原文
-         · 完整链路：Map → Clue Layer → Detail Panel（不出现第三套阅读器） */
-    .pm-clue-layer {
-        position: absolute;
-        z-index: 36;
-        display: none;
-        flex-direction: column;
-        width: 340px;
-        max-width: calc(100vw - 32px);
-        max-height: min(66vh, 560px);
-        padding: 14px 16px 12px;
-        background: var(--panel-strong);
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        box-shadow: 0 10px 30px rgba(24, 31, 27, .10);
-        opacity: 0;
-        transform: translateY(6px);
-        transition: opacity .18s var(--transition), transform .18s var(--transition);
+    /* ---- v5.56：Map Reading / Evidence Semantic Layer 视觉（移植自 v5.55，沿用 Cartographic Annotation 语言）
+       视觉纪律不变：仍是地图注记——不用卡片、不用胶囊、不做 dashboard。
+       tag 是地图注记式的 semantic token：无底色，靠 marker + 下划线表达 focus。 */
+    .fn-body { display: flex; flex-direction: column; gap: 14px; }
+    .fn-group + .fn-group { padding-top: 12px; border-top: 1px solid var(--pm-hair, var(--line)); }
+    .fn-question {
+        margin: 0 0 7px;
+        font-size: 12.5px;
+        line-height: 1.55;
+        letter-spacing: .01em;
+        color: var(--ink-soft);
     }
-    .pm-clue-layer.is-open { display: flex; opacity: 1; transform: translateY(0); }
-    .pm-clue-head {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 10px;
-        padding-bottom: 10px;
-        border-bottom: 1px solid var(--line);
-    }
-    /* v5.47：Clue Layer 向 Field Note / Cartographic Annotation 靠近。
-       结构固定为：NN / 地标名 → FIELD NOTE → 测绘分隔线 → 记录列表 → 还有 N 条记录。
-       架构不变：不是 modal、不移动 Anchor、点击仍走既有 Detail Panel。 */
-    .pm-clue-title {
-        margin: 0;
-        font-size: 16px;
-        font-weight: 500;
-        line-height: 1.3;
-        color: var(--ink);
-        font-variant-numeric: tabular-nums;
-    }
-    .pm-clue-no {
-        font-weight: 700;
-        letter-spacing: .08em;
-        color: color-mix(in srgb, var(--accent) 58%, var(--ink-faint));
-    }
-    .pm-clue-note-label {
-        margin: 9px 0 0;
-        font-size: 9px;
-        font-weight: 700;
-        letter-spacing: .26em;
-        text-transform: uppercase;
-        color: color-mix(in srgb, var(--accent) 58%, var(--ink-faint));
-    }
-    .pm-clue-rule {
-        height: 0;
-        margin: 7px 0 0;
-        border: 0;
-        border-top: 1px solid var(--pm-line, var(--line));
-    }
-    .pm-clue-foot {
-        margin: 8px 0 0;
-        padding-top: 7px;
-        border-top: 1px solid var(--pm-hair, var(--line));
-        font-size: 11px;
-        letter-spacing: .02em;
-        color: var(--ink-faint);
-    }
-    .pm-clue-close {
-        flex: none;
+    .fn-tokens { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0; padding: 0; list-style: none; }
+    .fn-token { display: inline-flex; }
+    .fn-tag {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 6px;
         font: inherit;
-        font-size: 18px;
-        line-height: 1;
-        color: var(--ink-faint);
+        font-size: 13.5px;
+        line-height: 1.5;
+        padding: 1px 0 2px;
         background: none;
         border: 0;
-        padding: 2px 4px;
+        border-bottom: 1px dotted var(--line);
+        color: var(--ink);
         cursor: pointer;
-        border-radius: 6px;
-        transition: color var(--transition);
+        opacity: .92;
+        transition: opacity .15s var(--transition), border-color .15s var(--transition), color .15s var(--transition);
     }
-    .pm-clue-close:hover { color: var(--ink); }
-    .pm-clue-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-    .pm-clue-list {
-        list-style: none;
-        margin: 8px -6px 0;
-        padding: 0 6px 2px;
+    .fn-mark { flex: none; width: 4px; height: 4px; border-radius: 50%; background: var(--ink-faint); transform: translateY(-2px); }
+    .fn-tag-text { overflow-wrap: anywhere; }
+    .fn-tag:hover { border-bottom-color: var(--accent); opacity: 1; }
+    .fn-tag:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; opacity: 1; }
+    .fn-tag.is-focus { border-bottom: 1px solid var(--accent); opacity: 1; }
+    .fn-tag.is-focus .fn-mark { background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent); }
+    .fn-subgroup + .fn-subgroup { margin-top: 7px; }
+    .fn-sub-label {
+        margin: 0 0 3px;
+        font-size: 10.5px;
+        letter-spacing: .18em;
+        text-transform: uppercase;
+        color: color-mix(in srgb, var(--accent) 52%, var(--ink-faint));
+    }
+    .fn-items { margin: 0; padding: 0; list-style: none; }
+    .fn-item + .fn-item { margin-top: 10px; }
+    .fn-item-head {
         display: flex;
-        flex-direction: column;
-        gap: 2px;
-        overflow-y: auto;
-        overscroll-behavior: contain;
+        align-items: baseline;
+        gap: 8px;
+        margin: 0 0 3px;
+        font-size: 11px;
+        letter-spacing: .12em;
+        color: var(--ink-faint);
     }
-    .pm-clue-item {
+    .fn-rank { color: color-mix(in srgb, var(--accent) 58%, var(--ink-faint)); font-variant-numeric: tabular-nums; }
+    .fn-field { color: var(--ink-faint); }
+    .fn-word {
+        font: inherit;
+        font-size: 15px;
+        padding: 0 0 1px;
+        background: none;
+        border: 0;
+        border-bottom: 1px solid var(--line);
+        color: var(--ink);
+        cursor: pointer;
+    }
+    .fn-word:hover { border-bottom-color: var(--accent); }
+    .fn-word:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .fn-item-open {
         display: flex;
         align-items: baseline;
         gap: 8px;
         width: 100%;
         font: inherit;
         font-size: 13.5px;
-        line-height: 1.5;
-        color: var(--ink-soft);
+        line-height: 1.7;
         text-align: left;
+        padding: 2px 0;
         background: none;
-        border: 1px solid transparent;
-        border-radius: 6px;
-        padding: 4px 6px;
+        border: 0;
+        color: var(--ink);
         cursor: pointer;
-        transition: border-color var(--transition), background var(--transition), color var(--transition);
     }
-    .pm-clue-item:hover {
-        border-color: var(--pm-line, var(--line));
-        background: var(--accent-soft);
-        color: var(--ink);
+    .fn-item-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .fn-dot { flex: none; width: 4px; height: 4px; border-radius: 50%; background: var(--ink-faint); transform: translateY(-5px); }
+    .fn-item-open:hover .fn-dot { background: var(--accent); }
+    .fn-item-open[data-type="avoid"] .fn-dot { background: var(--warn); border-radius: 1px; }
+    .fn-item-open[data-type="experiment"] .fn-dot { background: transparent; border: 1.5px solid var(--good); }
+    .fn-item-open[data-type="stock"] .fn-dot { background: var(--accent-warm); border-radius: 1px; }
+    .fn-item-text { margin: 0; font-size: 13px; line-height: 1.75; color: var(--ink-soft); white-space: pre-wrap; overflow-wrap: anywhere; }
+    .fn-item-text.is-empty { color: var(--ink-faint); }
+    .fn-item-text.is-empty em { font-style: normal; }
+    .fn-static { margin: 0; font-size: 13.5px; line-height: 1.75; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+    /* 同一语义结构，两处排版各自沿用原有阅读度量：
+       Field Note 浮层（340px）= 紧凑注记；深入阅读（宽面板）= v5.54 的阅读字号。 */
+    .compass-detail-body .fn-question { font-size: 13px; }
+    .compass-detail-body .fn-item-open,
+    .compass-detail-body .fn-static { font-size: 15.5px; line-height: 1.85; }
+    .compass-detail-body .fn-tag { font-size: 15px; }
+    .compass-detail-body .fn-word { font-size: 16px; }
+    .compass-detail-body .fn-item-text { font-size: 14.5px; line-height: 1.8; }
+    .compass-detail-body .fn-sub-label { font-size: 11px; }
+    /* 地图上的 tag 节点被聚焦时：只加一条注记式下划线，不加底色、不变形 */
+    .pm-sat.is-focus { opacity: 1; color: var(--ink); }
+    .pm-sat.is-focus .pm-sat-text { border-bottom: 1px solid var(--accent); }
+    .pm-sat.is-focus .pm-sat-dot { opacity: 1; }
+    @media (prefers-reduced-motion: reduce) {
+        .fn-tag, .fn-item-open, .fn-word { transition: none; }
     }
-    .pm-clue-item:focus-visible {
-        outline: 2px solid var(--accent);
-        outline-offset: 1px;
-        color: var(--ink);
-    }
-    .pm-clue-dot {
-        flex: none;
-        width: 5px;
-        height: 5px;
-        margin-top: .55em;
-        border-radius: 50%;
-        background: var(--accent);
-        opacity: .8;
-    }
-    .pm-clue-text { overflow-wrap: anywhere; }
-    .pm-clue-item[data-type="avoid"] .pm-clue-dot { background: var(--warn); border-radius: 1px; }
-    .pm-clue-item[data-type="experiment"] .pm-clue-dot { background: transparent; border: 1.5px solid var(--good); }
-    .pm-clue-item[data-type="stock"] .pm-clue-dot { background: var(--accent-warm); border-radius: 1px; }
-    /* 当前地标压过其它地标，保证它不会被邻近内容视觉上压住 */
-    .pm-anchor.is-clue-open { z-index: 3; }
 
     /* ---- 8. Mobile 路径注记（Desktop 由 SVG trail 承担） ---- */
     .pm-trail-note { display: none; }
@@ -4390,8 +4477,6 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
         .pm-sat { font-size: 14px; opacity: .96; }
         .pm-anchor[data-anchor="values"] .pm-sat { font-size: 15.5px; }
         /* v5.42：Mobile 纵向场无重叠风险，保留原有就地展开 */
-        .pm-anchor.is-open .pm-latent { display: block; }
-        .pm-anchor.is-open .pm-sat--latent { display: inline-flex; }
         .pm-trail-note {
             display: flex;
             flex-wrap: wrap;
@@ -4495,9 +4580,6 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
         .pm-trail.is-revealing { stroke-dashoffset: 0; }
         .pm-trail-end.is-active { opacity: .72; }
         .pm-trail-label.is-active { opacity: .85; }
-        /* v5.42：Clue Layer 关掉过渡，功能与信息层级完整保留 */
-        .pm-clue-layer { transition: none !important; transform: none !important; }
-        .pm-clue-item { transition: none !important; }
         /* 语义状态保留（与上面同值，显式写出以便审计） */
         .pm-anchor { opacity: var(--rest, .92); }
         .pm-stage.is-exploring .pm-anchor { opacity: .86; }
@@ -4527,7 +4609,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
     <!-- 轻量 Toast 容器（第 20 项） -->
     <div class="toast" id="toast" role="status" data-page-node-id="wDepWl8pFKDlRKvQ5yV0qU"></div>
 
-    <div class="shell" id="mainContent" role="main" data-page-node-id="2cuFKBfpUKYmXmRCyQIU3W">
+    <div class="shell" id="mainContent" data-page-node-id="2cuFKBfpUKYmXmRCyQIU3W">
         <header class="topbar" data-page-node-id="4VCzIuFtF5tL3zlFOb1YFB">
             <div class="brand" data-page-node-id="lXbF3K6zvsrSds6V9DIxrF">
                 <div class="brand-mark" data-page-node-id="JENg4SuUQ1nCUt6Sma5Cbm">🪐</div>
@@ -4591,7 +4673,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
                         <div class="poster-lines" data-page-node-id="aJTxz9goeHgCSgkqbeQsTM"></div>
                         <div class="poster-content" data-page-node-id="8mRmUUtgs3FoVPN3KHfBW2">
                             <div class="poster-label" data-page-node-id="YpQv2SF1VHQmaiHBYqjpvw">Personal Compass</div>
-                            <div class="poster-title" data-page-node-id="8PnyH4T4Vy6q2DYjfKL9B5">慢慢整理自己的生活线索，看见自己的当前坐标。</div>
+                            <div class="poster-title" data-page-node-id="8PnyH4T4Vy6q2DYjfKL9B5">把人生问题，慢慢变成自己的语言</div>
                         </div>
                     </div>
                     <div class="panel-list" data-page-node-id="EOGjbjUoqXhs2EkbY4aBzA">
@@ -4657,7 +4739,6 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
                     <div class="compass-actions" data-page-node-id="pg36U2mth5wvs0XNeGkPxC">
                         <button class="primary-btn" id="downloadSummaryBtn" type="button" data-page-node-id="J8NGlRifQbIe9DKwDf8VxJ">下载我的完整记录（PDF）</button>
                         <button class="soft-btn" id="backupFromSummaryBtn" type="button" data-page-node-id="Nis4eUeK3lS9vhBUZ43TOH">🔒 加密保存</button>
-                        <button class="ghost-btn" id="downloadBlankBtn" type="button" data-page-node-id="ICBlankDownloadV552">下载空白版</button>
                     </div>
                 </div>
             </div>
@@ -5116,6 +5197,12 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
 
         /* v5.19：Compass 视图纯 UI state，不写 localStorage */
         let currentCompassView = "map";
+        let _pendingJourneyHint = false;
+        /* Camera Map Experiment：本次 Journey 是否从 Map「去这一题」进入。
+           纯页面生命周期 transient flag，不写 localStorage；离开 Map 后即清除。 */
+        let _journeyReturnFromMap = false;
+        function _icArrivalHintDone() { try { return localStorage.getItem('ic_arrival_hint_done') === '1'; } catch (e) { return false; } }
+        function _icArrivalHintMark() { try { localStorage.setItem('ic_arrival_hint_done', '1'); } catch (e) {} }
 
         function escapeHtml(value) {
             return String(value || "")
@@ -5476,7 +5563,13 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
             }
 
             els.stepCard.innerHTML = `
-                <div class="step-kicker">${escapeHtml(step.phase)}</div>
+                ${_journeyReturnFromMap ? `<a class='journey-back-link' href='#' id="journeyBackToMap" aria-label='回到我的方向地图'>← 我的罗盘</a>` : ``}
+                ${_pendingJourneyHint && !_icArrivalHintDone() ? `
+                <div class='journey-arrival-hint' id="journeyArrivalHint" role='status'>
+                    <p>你从「方向地图」点进来了。写完这一题，随时可以回到地图看它长出来；或继续往下走。</p>
+                    <button type='button' class='ghost-btn small' id='journeyHintClose'>知道了</button>
+                </div>` : ``}
+                <div class='step-kicker'>${escapeHtml(step.phase)}</div>
                 <div class="step-head">
                     <h2>${escapeHtml(step.title)}</h2>
                     <p>${escapeHtml(step.intro)}</p>
@@ -5499,6 +5592,38 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
             `;
 
             bindQuestionEvents(step);
+
+            /* Camera Map Experiment：填写视图常驻「回到我的罗盘」+ 一次性到达提示 */
+            const _jb = document.getElementById('journeyBackToMap');
+            if (_jb) {
+                const _goMap = function (e) {
+                    if (e) e.preventDefault();
+                    _journeyReturnFromMap = false;
+                    state.showSummary = true;
+                    currentCompassView = 'map';
+                    saveState();
+                    renderSummary();
+                    switchView('summary');
+                    document.querySelectorAll('.mode-btn').forEach(function (b) {
+                        const on = b.dataset.mode === currentCompassView;
+                        b.classList.toggle('active', on);
+                        b.setAttribute('aria-pressed', String(on));
+                    });
+                    requestAnimationFrame(function () {
+                        const t = document.getElementById('compassPageTitle');
+                        if (t) { try { t.focus({ preventScroll: true }); } catch (_) { t.focus(); } }
+                    });
+                };
+                _jb.addEventListener('click', _goMap);
+                _jb.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') _goMap(e); });
+            }
+            const _jh = document.getElementById('journeyArrivalHint');
+            if (_jh) {
+                _pendingJourneyHint = false;
+                const _close = function () { _icArrivalHintMark(); const p = _jh.parentNode; if (p) p.removeChild(_jh); };
+                const _hc = document.getElementById('journeyHintClose');
+                if (_hc) _hc.addEventListener('click', _close);
+            }
 
             const prev = document.getElementById("prevStepBtn");
             const next = document.getElementById("nextStepBtn");
@@ -5526,6 +5651,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
 
             if (finish) finish.addEventListener("click", () => {
                 state.started = true;
+                _journeyReturnFromMap = false;
                 state.showSummary = true;
                 saveState();
                 renderSummary();
@@ -5536,7 +5662,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
                     triggerCelebration();
                     announce("这轮 Journey 已完成，你的个人罗盘已经生成。");
                 }
-                // 直接定位到罗盘正文（而非顶部导语），为吸顶栏预留偏移
+                // 直接定位到罗盘正文（而非顶部导语）；v5.68 起顶栏不再吸顶，只留少量落点偏移
                 requestAnimationFrame(() => {
                     const target = document.querySelector(".summary-grid");
                     if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -6873,9 +6999,6 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
                 /* v5.30：DOM 就位后测量真实位置、绘制 trail、启动场域交互 */
                 requestAnimationFrame(initPmField);
             } else {
-                /* v5.51 / BUG-01 (P1)：离开地图进入 Record 时，收起仍挂在 body 上的线索层，
-                   避免其残留覆盖记录正文并吞掉点击。silent、幂等（层不存在时直接返回）。 */
-                closePmClueLayer(true);
                 els.compassContent.innerHTML = renderCompassRecord(data);
             }
             bindCompassEvents();
@@ -7225,13 +7348,18 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
             return `
                 <div class="compass-map compass-map-v30" data-density="${model.density}">
                     ${renderPmPlate(model)}
+                    <div class="pm-viewport" id="pmViewport">
                     <div class="pm-stage" id="pmStage" data-density="${model.density}">
                         <div class="pm-atmos" aria-hidden="true">
-                            <svg class="pm-contours" aria-hidden="true" viewBox="0 0 1000 1000" preserveAspectRatio="none">${contours}</svg>
+                            <svg class="pm-contours" viewBox="0 0 1000 1000" preserveAspectRatio="none">${contours}</svg>
                             <div class="pm-field-attention"></div>
                         </div>
+                        <div class="pm-world" id="pmWorld">
                         <svg class="pm-trail-layer" id="pmTrailLayer" aria-hidden="true"></svg>
                         ${anchorsHTML}
+                        </div>
+                    </div>
+                    <button class="pm-overview-btn" id="pmOverviewBtn" type="button" aria-label="返回全图，查看所有节点">← 全图</button>
                     </div>
                     ${renderPmLegend()}
                     ${renderMapIntro()}
@@ -7305,7 +7433,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
             const satHTML = n => {
                 const type = n.type || "node";
                 const satText = pmSatText(n) || "";
-                return `<li><button type="button" class="pm-sat" data-node-id="${escapeHtml(n.id)}" data-type="${escapeHtml(type)}" aria-label="打开线索：${escapeHtml(satText)}，查看这项线索的完整记录"><span class="pm-sat-dot" aria-hidden="true"></span><span class="pm-sat-text">${escapeHtml(satText)}</span></button></li>`;
+                return `<li><button type="button" class="pm-sat" data-node-id="${escapeHtml(n.id)}" data-type="${escapeHtml(type)}" aria-label="${escapeHtml(pmSatAriaLabel(n))}"><span class="pm-sat-dot" aria-hidden="true"></span><span class="pm-sat-text">${escapeHtml(satText)}</span></button></li>`;
             };
             /* v5.42：latent 槽位整体收起（li 一起 display:none，避免 flex gap 残留）；
                Desktop 改由 Clue Layer 承载，Mobile 仍由 .is-open 就地展开。 */
@@ -7385,7 +7513,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
         function renderMapIntro() {
             return `
                 <footer class="pm-footnote">
-                    <span class="pm-hint-desktop">移动鼠标探索 · 点击地标深入</span>
+                    <span class="pm-hint-desktop">点击任意地标 · 镜头会轻轻靠近</span>
                     <span class="pm-hint-mobile">向下滚动探索 · 点击地标深入</span>
                 </footer>`;
         }
@@ -7662,6 +7790,25 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
             if (_compassDelegated) return;
             _compassDelegated = true;
             document.addEventListener("click", onCompassClick);
+            /* v5.64：双击 = 回到「全图」（与单击推近互为开关），与 click 在同一处委托绑定 */
+            document.addEventListener("dblclick", onCompassDblClick);
+        }
+
+        /* v5.64：双击地标（或地图任意处）= 回到「全图」取景 —— 与「单击 = 镜头推近」互为开关。
+           v5.48 时代这个手感是「第二次点击落在地标被相机移走后的空白 viewport」的副作用；
+           v5.63 的相机窗口把地标固定在窗口内，第二次点击不再落空，双击因此失去回落路径
+           （实测停在 camZ≈1.055、focus 仍是该地标），这里把它显式接回。
+           排除子交互元素（深入阅读 / 关键词 tag / 更多线索 / jump），不抢它们的语义。
+           pmCameraOverview 本身不滚动页面（v5.63 已删除其中的 window.scrollTo）。 */
+        function onCompassDblClick(e) {
+            const t = e.target;
+            if (!t || !t.closest) return;
+            if (!t.closest(".pm-viewport")) return;
+            const anchor = t.closest(".pm-anchor");
+            if (anchor && t.closest(".pm-sat, .pm-read, [data-anchor-more], [data-anchor-vision], [data-jump-key]")) return;
+            if (PM.stacked || PM.reduced) return;
+            e.preventDefault();
+            pmCameraOverview();
         }
 
         function onCompassClick(e) {
@@ -7695,27 +7842,33 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
                 closeCompassDetail("回访已记录");
                 return;
             }
+            /* Camera Map Experiment：点击「人生地点」-> 镜头轻移靠近（自由探索，不规定顺序）。
+               深入阅读 / 具体线索 仍走既有 Detail Panel；.pm-more / clue 仍走既有 Clue Layer。 */
+            const pmCamVp = closest(".pm-viewport");
+            const pmCamAnchor = closest(".pm-anchor");
+            const pmCamFoot = closest(".pm-footnav-stop");
+            if (pmCamFoot) { e.preventDefault(); pmCameraTravelTo(pmCamFoot.dataset.anchor, pmCamFoot); return; }
+            if (pmCamAnchor) {
+                const camSub = t.closest(".pm-sat, .pm-read, [data-anchor-more], [data-anchor-vision], [data-jump-key]");
+                if (!camSub) { e.preventDefault(); pmCameraTravelTo(pmCamAnchor.dataset.anchor, t); return; }
+            } else if (pmCamVp) {
+                pmCameraExit();
+            }
 
-            /* v5.30：L2 constellation 关键词 → 打开既有 Focus Panel（完整回答） */
+            /* v5.30：L2 constellation 关键词 → 打开既有 Focus Panel（完整回答）
+               v5.56：组模式（tag-cluster / classified-cluster）的地图 tag 只聚焦、不打开 Detail；
+               有独立文本的节点才进入 Detail。 */
             const pmSat = closest(".pm-sat");
             if (pmSat && pmSat.dataset.nodeId) {
                 e.preventDefault();
+                if (pmFocusTagNodeIfGroupMember(pmSat)) return;
                 highlightNodeRelationship(pmSat.dataset.nodeId);
                 openCompassDetail(pmSat.dataset.nodeId);
                 return;
             }
 
-            /* v5.42：Clue Layer 里的某条线索 → 既有 Detail Panel（不新建第二套阅读器） */
-            const pmClueItem = closest(".pm-clue-item");
-            if (pmClueItem && pmClueItem.dataset.nodeId) {
-                e.preventDefault();
-                highlightNodeRelationship(pmClueItem.dataset.nodeId);
-                openCompassDetail(pmClueItem.dataset.nodeId);
-                return;
-            }
-
-            /* v5.30：L1 地标标题 / 深入阅读 → 聚焦该地标 + 打开 Focus Panel
-               v5.47：这是唯一的「进入 Detail」路径 —— hover 不会打开它。 */
+            /* v5.30：L1 地标标题 → 聚焦该地标 + 打开其 summary 的 Focus Panel
+               v5.47：hover 不会打开它。 */
             const pmHead = closest(".pm-head");
             if (pmHead && pmHead.dataset.nodeId) {
                 e.preventDefault();
@@ -7723,11 +7876,29 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
                 openCompassDetail(pmHead.dataset.nodeId);
                 return;
             }
+
+            /* v5.56：深入阅读 = 整个地标的完整阅读（openAnchorPanorama），不再只是单节点 */
             const pmRead = closest(".pm-read");
-            if (pmRead && pmRead.dataset.nodeId) {
+            if (pmRead && pmRead.dataset.anchorKey) {
                 e.preventDefault();
-                highlightNodeRelationship(pmRead.dataset.nodeId);
-                openCompassDetail(pmRead.dataset.nodeId);
+                openAnchorPanorama(pmRead.dataset.anchorKey);
+                return;
+            }
+
+            /* v5.56：更多线索 / 深入阅读 内的 evidence 项：
+               · group tag（.fn-tag）只聚焦、不打开重复 Detail
+               · 有独立文本的 value / 字段 / 原文（.fn-word / .fn-item-open）进入 Detail */
+            const fnTag = closest(".fn-tag");
+            if (fnTag) {
+                e.preventDefault();
+                pmFocusEvidenceTag(fnTag);
+                return;
+            }
+            const fnOpen = closest(".fn-word[data-node-id], .fn-item-open[data-node-id]");
+            if (fnOpen && fnOpen.dataset.nodeId) {
+                e.preventDefault();
+                highlightNodeRelationship(fnOpen.dataset.nodeId);
+                openCompassDetail(fnOpen.dataset.nodeId);
                 return;
             }
 
@@ -7739,12 +7910,8 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
                 return;
             }
 
-            /* v5.42：关闭线索层（独立轻量浮层，不是 modal） */
-            const pmClueClose = closest("[data-pm-clue-close]");
-            if (pmClueClose) { e.preventDefault(); closePmClueLayer(); return; }
 
-            /* v5.30：展开 latent 内容（不打开面板）
-               v5.42：Desktop 改为打开 / 切换 / 关闭 Clue Layer；Mobile 保持就地展开 */
+            /* v5.59：展开 latent 内容（Anchor 内联展开，不打开浮层） */
             const pmMore = closest("[data-anchor-more]");
             if (pmMore) {
                 e.preventDefault();
@@ -7752,16 +7919,6 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
                 return;
             }
 
-            /* v5.42：点击 Clue Layer 之外 → 收起（同一时间最多一个线索层）。
-               点击层内空白处 → 原样保留（不误清地图 focus 状态）。
-               v5.45.x：点击 Detail Panel / Backdrop 时，保留 Clue Layer，关闭 Detail 后可继续浏览其他线索。 */
-            if (_pmClueKey) {
-                const clueEl = pmClueLayerEl();
-                if (clueEl && clueEl.contains(t)) return;
-                if (els.compassDetailPanel && els.compassDetailPanel.contains(t)) return;
-                if (els.compassDetailBackdrop && els.compassDetailBackdrop.contains(t)) return;
-                closePmClueLayer(true);
-            }
 
             /* 点击其他区域时清除关系高亮 */
             clearRelationshipHighlights();
@@ -7779,7 +7936,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
             if (emptyBack) { state.showSummary = false; saveState(true); refresh(); return; }
 
             const jumpKey = closest("[data-jump-key]");
-            if (jumpKey) { jumpToQuestion(jumpKey.dataset.jumpKey); return; }
+            if (jumpKey) { e.preventDefault(); _pendingJourneyHint = true; _journeyReturnFromMap = true; jumpToQuestion(jumpKey.dataset.jumpKey); return; }
 
             const jump = closest(".progress-jump-btn");
             if (jump) {
@@ -7976,6 +8133,89 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
                 els.closeCompassDetailBtn.focus();
             }
             announce(`已打开 ${(node.field || node.label)} 的详情`);
+        }
+
+        /* v5.54（v5.56 沿用）：复用 Detail Panel 的激活逻辑（focus 管理 / 无障碍 / 滚动锁）。
+           openCompassDetail 与 openAnchorPanorama 共用，避免重复实现带来回归。 */
+        function activateCompassDetail(announceText) {
+            _lastFocusedBeforeDetail = document.activeElement;
+            els.compassDetailPanel.classList.add("active");
+            els.compassDetailBackdrop.classList.add("active");
+            document.body.style.overflow = "hidden";
+            /* v5.30.3：focus 进入 dialog——默认落在关闭按钮，键盘用户明确知道自己在哪里 */
+            if (els.closeCompassDetailBtn && typeof els.closeCompassDetailBtn.focus === "function") {
+                els.closeCompassDetailBtn.focus();
+            }
+            announce(announceText);
+        }
+
+        /* v5.56：深入阅读 = 该地标（anchor）全部内容的地标级完整阅读，覆盖全部 6 个 PM_ANCHORS。
+           与「更多线索」共用 buildFieldNoteModel() + 共享语义结构，但这里是完整原文、不截断、不摘要。
+           复用 Detail Panel 容器与既有 focus / 无障碍逻辑；地图节点策略不变（见 .pm-sat 委托）。 */
+        function openAnchorPanorama(anchorKey) {
+            const model = buildFieldNoteModel(getCompassData(), anchorKey);
+            if (!model) return;
+            const meta = model.meta;
+            const sectionTitle = sectionLabelForAnchor(anchorKey);
+
+            const groupsHTML = renderFieldNoteGroupsHTML(model);
+
+            /* 相关线索：取该地标 summary 节点算出，与单节点详情保持一致体验 */
+            const summaryNodeId = model.summaryNodeId;
+            const nodes = summaryNodeId ? buildMapNodes(getCompassData()) : [];
+            const summaryNode = summaryNodeId ? nodes.filter(n => n.id === summaryNodeId)[0] : null;
+            const related = summaryNode ? pmRelatedAnchorTitles(summaryNode) : [];
+            const relatedHTML = related.length
+                ? `<div class="compass-detail-related"><span class="cd-cap">相关线索</span>${related.map(t => escapeHtml(t)).join(" · ")}</div>`
+                : "";
+
+            els.compassDetailMeta.textContent = sectionTitle;
+            els.compassDetailTitle.textContent = `${meta.title} · 全部内容`;
+            els.compassDetailToRecordBtn.textContent = "查看完整记录 →";
+
+            /* v5.56：不再渲染「N 组记录 / M 项线索」统计行（减法：Field Note 阅读器式统计不再是界面元素） */
+            els.compassDetailBody.innerHTML = groupsHTML
+                ? `<div class="fn-body">${groupsHTML}</div><p class="compass-detail-provenance">来自「${escapeHtml(sectionTitle)}」</p>${relatedHTML}`
+                : `<p class="compass-detail-answer"><em>这里还没有内容。</em></p>`;
+
+            els.compassDetailToRecordBtn.onclick = () => {
+                currentCompassView = "record";
+                closeCompassDetail();
+                renderCompassShell();
+                setTimeout(() => {
+                    const sectionNum = sectionNumberForRecord(anchorSection(anchorKey));
+                    const sectionEl = document.querySelector(`[data-record-section="${sectionNum}"]`);
+                    if (sectionEl) sectionEl.scrollIntoView({ behavior: "smooth", block: "start" });
+                }, 50);
+            };
+
+            activateCompassDetail(`已打开 ${meta.title} 全部内容`);
+        }
+
+        /* anchor key → 用户可见分组名（与 sectionLabelForNode 同源，但接收 anchor key） */
+        function sectionLabelForAnchor(anchorKey) {
+            const map = {
+                vision: "生活图景",
+                values: "在意与取舍",
+                boundary: "边界与我的选择",
+                direction: "从生活到工作",
+                here: "把方向放回现实",
+                experiment: "还有想知道的事"
+            };
+            return map[anchorKey] || anchorKey;
+        }
+
+        /* anchor key → Record Mode 的 section key（用于「查看完整记录 →」跳转定位） */
+        function anchorSection(anchorKey) {
+            const map = {
+                vision: "01",
+                values: "03",
+                boundary: "04",
+                direction: "05",
+                here: "06",
+                experiment: "07"
+            };
+            return map[anchorKey] || anchorKey;
         }
 
         function closeCompassDetail(announceText) {
@@ -8344,9 +8584,40 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
             if (!question) return;
             const host = els.stepCard.querySelector(`.question-input-host[data-host="${qid}"]`);
             if (!host) return;
+            /* v5.60：局部重建输入区前记录滚动位置与激活元素，重建后还原，避免选中选项后
+               页面跳动（高度变化导致滚动钳制）或焦点丢失（被重建的控件夺走焦点引发跳动）。 */
+            const pmScrollY = window.scrollY;
+            const pmActive = document.activeElement;
+            const pmActTag = pmActive && pmActive !== document.body ? pmActive.getAttribute("data-tag") : null;
+            const pmActVal = pmActive && pmActive !== document.body ? pmActive.getAttribute("data-value") : null;
+            const pmActInput = pmActive && pmActive !== document.body ? pmActive.getAttribute("data-input") : null;
+            const pmActStruct = pmActive && pmActive !== document.body ? pmActive.getAttribute("data-struct") : null;
+            const pmSelStart = (pmActive && typeof pmActive.selectionStart === "number") ? pmActive.selectionStart : null;
+            const pmSelEnd = (pmActive && typeof pmActive.selectionEnd === "number") ? pmActive.selectionEnd : null;
             host.innerHTML = renderQuestionInput(question);
             Array.from(host.querySelectorAll("textarea")).forEach(autoResizeTextarea);
             bindQuestionEvents(step, qid);
+            /* 还原焦点（不滚动） */
+            let pmRestored = null;
+            if (pmActInput) pmRestored = host.querySelector('[data-input="' + (pmActInput || "") + '"]');
+            else if (pmActStruct) pmRestored = host.querySelector('[data-struct="' + (pmActStruct || "") + '"]');
+            else if (pmActTag && pmActVal) pmRestored = Array.from(host.querySelectorAll('[data-tag]')).find(b => b.dataset.tag === pmActTag && b.dataset.value === pmActVal) || null;
+            if (pmRestored && typeof pmRestored.focus === "function") {
+                try { pmRestored.focus({ preventScroll: true }); } catch (_) { pmRestored.focus(); }
+                if (pmSelStart != null && typeof pmRestored.setSelectionRange === "function") {
+                    try { pmRestored.setSelectionRange(pmSelStart, pmSelEnd); } catch (_) {}
+                }
+            }
+            /* v5.62：若重建导致页面总高度变化并触发滚动钳制，恢复原有滚动位置。
+               关键：focus 的滚动纠正可能在当前任务之后异步发生（即使用 preventScroll），
+               故立即校正一次，并在下一帧再校正一次，彻底消除「选中选项后页面跳动」。 */
+            const pmRestoreScroll = () => {
+                if (window.scrollY !== pmScrollY) {
+                    try { window.scrollTo({ top: pmScrollY, left: 0, behavior: "auto" }); } catch (_) {}
+                }
+            };
+            pmRestoreScroll();
+            requestAnimationFrame(pmRestoreScroll);
         }
 
         /* 仅更新「你刚刚完成了什么」反馈块（完成度可能跨过 0/100% 阈值），不重建题目 */
@@ -8407,35 +8678,6 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
                 showToast("记录导出失败，请重试");
                 announce("完整记录导出失败");
             }
-        }
-
-        /* v5.52：下载空白版 —— 获取当前正式版 index.html 的源文件，下载为 Inner Compass.html。
-           不读取、不修改、不清空当前用户的 localStorage；下载的是服务端原始文件（不含任何已填内容）。
-           fetch 失败时优雅降级：提示并打开在线版（相对路径 index.html，即当前正式版，而非 GitHub 仓库），
-           不破坏当前页面状态、不产生空白页。 */
-        function downloadBlankVersion() {
-            const button = document.getElementById("downloadBlankBtn");
-            const originalLabel = button ? button.textContent : "下载空白版";
-            if (button) { button.disabled = true; button.textContent = "正在准备…"; }
-            const restore = () => { if (button) { button.disabled = false; button.textContent = originalLabel; } };
-            fetch("index.html", { cache: "no-store" })
-                .then(response => {
-                    if (!response.ok) throw new Error("HTTP " + response.status);
-                    return response.text();
-                })
-                .then(html => {
-                    downloadFile(html, "Inner Compass.html", "text/html;charset=utf-8");
-                    restore();
-                    showToast("已开始下载 Inner Compass.html（空白版）");
-                    announce("已开始下载空白版");
-                })
-                .catch(error => {
-                    console.warn("blank version download failed", error);
-                    restore();
-                    showToast("下载失败，正在为你打开在线版…");
-                    announce("下载失败，已打开在线版");
-                    window.open("index.html", "_blank", "noopener");
-                });
         }
 
         function exportJSON() {
@@ -9119,8 +9361,6 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
             if (downloadSummary) downloadSummary.addEventListener("click", downloadCompassReport);
             const backupFromSummary = document.getElementById("backupFromSummaryBtn");
             if (backupFromSummary) backupFromSummary.addEventListener("click", () => openBackupModal("export"));
-            const downloadBlank = document.getElementById("downloadBlankBtn");
-            if (downloadBlank) downloadBlank.addEventListener("click", downloadBlankVersion);
 
             /* 备份模态框内部事件 */
             document.getElementById("closeBackupBtn")?.addEventListener("click", closeBackupModal);
@@ -9777,14 +10017,10 @@ Inner Compass 不是替填写者找到职业答案，而是让一个模糊的「
                 const modalOpen = !!getActiveModal();
                 const panelOpen = els.compassDetailPanel.classList.contains("active");
                 const drawerOpen = els.progressDrawer.classList.contains("active");
-                const clueEl = pmClueLayerEl();
-                const clueOpen = !!clueEl && !!_pmClueKey;
                 if (event.key === "Escape") {
                     if (modalOpen) return; // 由 trapModalFocus 处理
                     if (panelOpen) { event.preventDefault(); closeCompassDetail(); return; }
                     if (drawerOpen) { event.preventDefault(); closeProgressDrawer(); return; }
-                    /* v5.42：Clue Layer 在地图 focus 之上、Drawer 之下，一次只关一层 */
-                    if (clueOpen) { event.preventDefault(); closePmClueLayer(); return; }
                     const stage = document.getElementById("pmStage");
                     if (stage && stage.classList.contains("is-focused")) { event.preventDefault(); clearRelationshipHighlights(); return; }
                     return;
@@ -10003,7 +10239,11 @@ Inner Compass 不是替填写者找到职业答案，而是让一个模糊的「
             stacked: false,
             focusKey: null,
             hoverKey: null,
-            w: 0, h: 0
+            w: 0, h: 0,
+            camX: 0, camY: 0, camZ: 1,
+            camTX: 0, camTY: 0, camTZ: 1,
+            camMoving: false, camPendingClue: null, camTrigger: null,
+            vpH: 0, worldH: 0, worldW: 0, originX: 0, fitZ: 1
         };
 
         const PM_STACK_MAX = 900;
@@ -10040,8 +10280,6 @@ Inner Compass 不是替填写者找到职业答案，而是让一个模糊的「
         function initPmField() {
             const stage = document.getElementById("pmStage");
             if (!stage) return;
-            /* v5.42：地图重建时收起唯一的线索层（不抢焦点、不播报） */
-            closePmClueLayer(true);
             pmTeardown();
             PM.stage = stage;
             PM.reduced = !!pmReduceMQ().matches;
@@ -10059,12 +10297,14 @@ Inner Compass 不是替填写者找到职业答案，而是让一个模糊的「
             pmMeasure();
             pmClampAnchors();
             updatePmGeometry();
+            pmCameraFit();
             if (PM.stacked) pmInitScrollAttention();
             else if (!PM.reduced) pmInitPointer();
             if (!_pmResizeBound) {
                 window.addEventListener("resize", pmOnResize, { passive: true });
                 _pmResizeBound = true;
             }
+            pmBindOverviewBtn();
             pmBindFocusIn();
         }
 
@@ -10110,17 +10350,29 @@ Inner Compass 不是替填写者找到职业答案，而是让一个模糊的「
             });
         }
 
+        /* v5.63：「← 全图」按钮首次显式绑定处理器。
+           此前它没有任何监听，只靠点击冒泡到 document 的兜底分支（closest('.pm-anchor') 为空、
+           closest('.pm-viewport') 命中 → pmCameraExit()）才碰巧生效 —— 而那个分支同时承担
+           「点空白 → 退出相机」，于是点它和点空白一样会整页滚到顶。 */
+        function pmBindOverviewBtn() {
+            const btn = document.getElementById("pmOverviewBtn");
+            if (!btn || btn.dataset.pmBound === "1") return;
+            btn.dataset.pmBound = "1";
+            btn.addEventListener("click", function (e) { e.preventDefault(); pmCameraOverview(); });
+        }
+
         function pmOnResize() {
             if (_pmResizeTimer) clearTimeout(_pmResizeTimer);
             _pmResizeTimer = setTimeout(() => {
                 if (!PM.stage || !document.body.contains(PM.stage)) return;
-                closePmClueLayer(true);
                 /* 先清掉 px 定位，让 CSS 百分比重新生效，再按新视口夹回 */
                 PM.anchors.forEach(el => { el.style.left = ""; el.style.top = ""; });
                 PM.stacked = pmIsStacked();
+                PM.camMoving = false; pmCameraReset();
                 pmMeasure();
                 pmClampAnchors();
                 updatePmGeometry();
+                pmCameraFit();
                 if (PM.stacked) { pmStopPointer(); pmInitScrollAttention(); }
                 else if (!PM.reduced) { pmStopScrollAttention(); pmInitPointer(); }
             }, 160);
@@ -10235,6 +10487,22 @@ Inner Compass 不是替填写者找到职业答案，而是让一个模糊的「
             PM.raf = 0;
             if (!PM.stage || !document.body.contains(PM.stage)) { PM.running = false; return; }
 
+            /* Camera Map Experiment: ease camera toward target inside the single rAF loop */
+            let camSettling = false;
+            if (PM.camMoving && !PM.stacked && !PM.reduced) {
+                PM.camX = pmApproach(PM.camX, PM.camTX, .12);
+                PM.camY = pmApproach(PM.camY, PM.camTY, .12);
+                PM.camZ = pmApproach(PM.camZ, PM.camTZ, .12);
+                pmCameraApply();
+                if (Math.abs(PM.camX - PM.camTX) + Math.abs(PM.camY - PM.camTY) + Math.abs(PM.camZ - PM.camTZ) < 0.01) {
+                    PM.camX = PM.camTX; PM.camY = PM.camTY; PM.camZ = PM.camTZ;
+                    pmCameraApply();
+                    PM.camMoving = false;
+                    camSettling = true;
+                }
+            }
+            if (camSettling) pmCameraArrive();
+
             /* v5.47：这里没有任何全局位移 —— 指针不移动地图、不平移路线、不缩放场域。
                每帧只写四件事：
                  ① --fx / --fy  注意力中心
@@ -10291,7 +10559,7 @@ Inner Compass 不是替填写者找到职业答案，而是让一个模糊的「
 
             const stillField = Math.abs(fkTarget - PM.fieldK) > .002
                 || Math.abs(PM.fxt - PM.fx) > .05 || Math.abs(PM.fyt - PM.fy) > .05;
-            if (maxDelta < .004 && !stillField) { PM.running = false; return; }
+            if (maxDelta < .004 && !stillField && !PM.camMoving) { PM.running = false; return; }
             PM.raf = requestAnimationFrame(pmTick);
         }
 
@@ -10541,6 +10809,164 @@ Inner Compass 不是替填写者找到职业答案，而是让一个模糊的「
             return PM_TRAILS.some(t => (t.from === a && t.to === b) || (t.from === b && t.to === a));
         }
 
+        /* ===== Camera Map (v5.50 相机版设计) =====
+           Viewport -> World -> Camera。点击「人生地点」-> 镜头轻移靠近（transform translate3d+scale）。
+           只动 transform / opacity；单 rAF(pmTick) 驱动 easing；reduced-motion / Mobile 下不移动相机。 */
+        const PM_CAMERA_ZOOM = { vision: 1.06, values: 1.05, boundary: 1.05, direction: 1.055, here: 1.06, experiment: 1.055 };
+        /* v5.63：「全图」取景的边界。窗口目标高度 = 一屏高（夹在 620–1080px 之间）；
+           比例下限 0.55 是「宁可窗口略高于一屏，也不让字号小到读不清」的取舍。 */
+        const PM_CAMERA_FIT_MIN = 0.55;
+        const PM_CAMERA_MIN_WINDOW = 620;
+        const PM_CAMERA_MAX_WINDOW = 1080;
+        const PM_CAMERA_BIAS = {
+            vision: { x: .50, y: .42 }, values: { x: .46, y: .50 }, boundary: { x: .54, y: .46 },
+            direction: { x: .54, y: .54 }, here: { x: .46, y: .58 }, experiment: { x: .50, y: .58 }
+        };
+        function pmCameraApply() {
+            const stage = document.getElementById("pmStage");
+            if (!stage) return;
+            stage.style.setProperty("--cam-x", PM.camX.toFixed(2));
+            stage.style.setProperty("--cam-y", PM.camY.toFixed(2));
+            stage.style.setProperty("--cam-z", PM.camZ.toFixed(4));
+            pmCameraSyncWindow();
+        }
+
+        /* v5.63：窗口高度 = 「全图」比例下的地图高度。
+           transform: scale() 不改变元素的布局高度，所以静止态用一个负 margin-bottom 把
+           「缩放省下来的高度」精确抵掉 —— 窗口正好包住全图：页面不再为地图多留一屏空白，
+           也不产生第二个滚动区（这是「默认一屏看到大部分地标」能成立的关键）。
+           注意：此处只读缓存的 PM.worldH / PM.fitZ，绝不在 rAF 里测量布局（沿用本项目铁律）。
+           断言对象是 PM.fitZ 而不是 PM.camZ —— 相机推近期间窗口高度必须保持稳定。 */
+        function pmCameraSyncWindow() {
+            const world = document.getElementById("pmWorld");
+            if (!world) return;
+            if (PM.stacked) { world.style.marginBottom = ""; return; }
+            if (!PM.worldH || !PM.fitZ) return;
+            world.style.marginBottom = (-(PM.worldH * (1 - PM.fitZ))).toFixed(2) + "px";
+        }
+        function pmCameraReset() {
+            PM.camX = PM.camTX = 0; PM.camY = PM.camTY = 0; PM.camZ = PM.camTZ = 1;
+            PM.camMoving = false; PM.camPendingClue = null; PM.camTrigger = null;
+            pmCameraApply();
+        }
+        function pmCameraComputeFit() {
+            const stage = document.getElementById("pmStage");
+            const world = document.getElementById("pmWorld");
+            const vp = document.getElementById("pmViewport");
+            if (!stage || !world || !vp) return null;
+            if (PM.stacked) { PM.fitZ = 1; return { z: 1, x: 0, y: 0 }; }
+            /* v5.63：静止态 = 「全图」——把整张地图缩到一屏之内（用户定案：默认就能看到大部分地标，
+               与 v5.5x 相机版的「全图」一致）。world.offsetHeight 是布局高度、不受 transform 影响，
+               可以安全地用来算比例；页面高度由 pmCameraSyncWindow 精确收口，不留空白。
+               只在这里测量布局（render / resize / 展开更多线索 时各调用一次），不进 rAF。 */
+            const worldH = world.offsetHeight || 0;
+            /* v5.67：同时缓存布局宽度 —— .pm-world 的 transform-origin 是 50% 0，
+               水平映射为 screen = camX + originX*(1−camZ) + camZ*world，
+               推近时要用 originX 做逆变换 / 正变换（见 pmCameraTravelTo）。
+               offsetWidth 是布局宽度、同样不受 transform 影响，与 worldH 一样只在这里量。 */
+            const worldW = world.offsetWidth || 0;
+            const vh = window.innerHeight || vp.clientHeight || stage.getBoundingClientRect().height || 760;
+            if (!worldH) return { z: 1, x: 0, y: 0 };
+            PM.vpH = vh;
+            PM.worldH = worldH;
+            PM.worldW = worldW;
+            PM.originX = worldW / 2;
+            const targetH = Math.max(PM_CAMERA_MIN_WINDOW, Math.min(vh, PM_CAMERA_MAX_WINDOW));
+            PM.fitZ = Math.min(1, Math.max(PM_CAMERA_FIT_MIN, targetH / worldH));
+            return { z: PM.fitZ, x: 0, y: 0 };
+        }
+        /* v5.63：瞬间回到「全图」取景 —— 不缓动、不滚动页面、不动 Focus 语义状态。
+           用于初始化 / 尺寸变化 / 「更多线索」展开收起 / reduced-motion。 */
+        function pmCameraFit() {
+            const stage = document.getElementById("pmStage");
+            if (stage) {
+                stage.classList.remove("is-camera");
+                const ob = document.getElementById("pmOverviewBtn");
+                if (ob) ob.classList.remove("is-visible");
+            }
+            PM.camMoving = false;
+            const f = pmCameraComputeFit();
+            if (!f) { pmCameraReset(); return; }
+            PM.camZ = PM.camTZ = f.z; PM.camX = PM.camTX = f.x; PM.camY = PM.camTY = f.y;
+            pmCameraApply();
+        }
+        function pmCameraOverview() {
+            pmFocusAnchor(null);
+            /* v5.63：回到全图 = 相机退回全图取景 —— 绝不滚动页面。
+               v5.59–v5.62 这里的 window.scrollTo({top:0, behavior:"smooth"}) 正是用户报告的
+               「点地标 / 双击地标后跳到 map mode 顶部」的根因：点击落在地标被相机移走后的空白
+               viewport 上会命中事件兜底分支 → pmCameraExit() → 这里 → 整页滚到顶（真浏览器实测
+               scrollY 886 → 0、900 → 0，滚动调用栈指向本函数）。
+               裁切（is-camera）留到相机停稳后由 pmCameraArrive 按「是否停在地标上」解除，
+               避免退回途中地图溢出到页面下方版块。 */
+            if (PM.stacked || PM.reduced) { PM.camMoving = false; pmCameraFit(); return; }
+            const f = pmCameraComputeFit();
+            if (!f) { pmCameraReset(); return; }
+            PM.camTZ = f.z; PM.camTX = f.x; PM.camTY = f.y;
+            PM.camMoving = true;
+            pmRequestFrame();
+        }
+        function pmCameraTravelTo(key, trigger) {
+            const stage = document.getElementById("pmStage");
+            if (!stage) return;
+            if (PM.stacked || PM.reduced) {
+                pmFocusAnchor(key);
+                return;
+            }
+            const el = stage.querySelector('.pm-anchor[data-anchor="' + key + '"]');
+            if (!el) return;
+            const sr = stage.getBoundingClientRect();
+            const b = el.getBoundingClientRect();
+            if (!sr.width || !b.width) { pmFocusAnchor(key); return; }
+            /* 撤销当前相机，恢复该地标在「未变换世界」里的布局中心，再计算把它推到视野焦点所需的平移+缩放
+               v5.67：.pm-world 的 transform-origin 改为 50% 0，水平映射变成
+                 screen = camX + originX*(1−camZ) + camZ*world
+               所以逆变换（少减一项）与正变换（多减一项）都必须带上 originX*(1−z)——
+               否则推近后地标会水平偏离焦点 originX*(1−zoom)（1440 视口下约 33px）。
+               垂直原点仍是 0 → Ly / camTY 公式与旧版完全一致，纵向手感不变。 */
+            const ox = PM.originX || 0;
+            const Lx = (b.left - sr.left + b.width / 2 - PM.camX - ox * (1 - PM.camZ)) / PM.camZ;
+            const Ly = (b.top - sr.top + b.height / 2 - PM.camY) / PM.camZ;
+            const bias = PM_CAMERA_BIAS[key] || { x: .5, y: .5 };
+            const zoom = PM_CAMERA_ZOOM[key] || 1.06;
+            /* v5.63：焦点落在「相机窗口」内部（窗口高度 = 全图收拢后的舞台高度），
+               而不是视口高度 —— 窗口本身已经一屏高，点击地标绝不需要再滚动页面。 */
+            const winH = sr.height || (window.innerHeight || PM.vpH || 760);
+            const focusX = sr.width * bias.x, focusY = winH * bias.y;
+            PM.camTX = focusX - ox * (1 - zoom) - zoom * Lx;
+            PM.camTY = focusY - zoom * Ly;
+            PM.camTZ = zoom;
+            PM.camMoving = true;
+            PM.camTrigger = trigger || null;
+            /* v5.63：出画第一帧就打开窗口裁切，推近途中地图不会溢出到页面下方版块 */
+            stage.classList.add("is-camera");
+            pmFocusAnchor(key);
+            pmRequestFrame();
+            /* v5.63：删除 scrollIntoView —— 静止态地图本身就是一屏，点击地标只做镜头推近，
+               永不滚动页面（v5.60 / v5.61 的滚动纠正都是这个问题的一层层补丁，现在根源消失）。 */
+        }
+        function pmCameraArrive() {
+            const stage = document.getElementById("pmStage");
+            const key = PM.camPendingClue;
+            /* v5.63：相机停稳后判定窗口状态 —— 停在地标上 = 相机窗口（裁切 + 显示「← 全图」）；
+               退回全图 = 解除裁切并收起按钮，整张地图完整可见（全程不滚动页面）。 */
+            const onLandmark = !!PM.focusKey;
+            if (stage) {
+                stage.classList.toggle("is-camera", onLandmark);
+                const ob = document.getElementById("pmOverviewBtn");
+                if (ob) ob.classList.toggle("is-visible", onLandmark);
+                const el = key && stage.querySelector('.pm-anchor[data-anchor="' + key + '"]');
+                if (el) {
+                    el.classList.remove("is-arrived");
+                    void el.offsetWidth;
+                    el.classList.add("is-arrived");
+                    setTimeout(() => el.classList.remove("is-arrived"), 540);
+                }
+            }
+            /* v5.59：抵达后不再打开 Clue Layer（已移除）；「深入阅读」是唯一完整阅读入口 */
+            PM.camPendingClue = null;
+        }
+        function pmCameraExit() { pmCameraOverview(); }
         /* ---------- Focus 状态 ----------
            1) 当前节点突出  2) 无关内容降 opacity  3) 真实 related 提升
            4) 真实 path 提升  5) 打开既有 Focus Panel  6) Esc 退出 */
@@ -10563,8 +10989,8 @@ Inner Compass 不是替填写者找到职业答案，而是让一个模糊的「
                 const isRelated = !!key && !isFocus && pmTrailNeighbor(k, key);
                 el.classList.toggle("is-focus", isFocus);
                 el.classList.toggle("is-related", isRelated);
-                /* v5.42：Desktop 的「展开」只由 Clue Layer 负责（focus ≠ 展开），
-                   Mobile 纵向场保持原有就地展开行为。 */
+                /* v5.59：Desktop 与 Mobile 统一——点击地标只做 focus（≠ 展开）；
+                   「展开」由「更多线索」按钮（pmToggleMore）负责，Anchor 内联展开预渲染的 .pm-latent。 */
                 if (isFocus && PM.stacked) {
                     el.classList.add("is-open");
                     const more = el.querySelector(".pm-more");
@@ -10614,11 +11040,9 @@ Inner Compass 不是替填写者找到职业答案，而是让一个模糊的「
              地图几何完全不变，latent 不在 Anchor 内 inline 展开。
            · Mobile（纵向场）→ 保持原有就地展开，无重叠风险。 */
         function pmToggleMore(key, trigger) {
-            if (!pmIsStacked()) {
-                if (_pmClueKey === key) closePmClueLayer();
-                else openPmClueLayer(key, trigger);
-                return;
-            }
+            /* v5.59：Desktop 与 Mobile 统一为 Anchor 内联展开——点击「＋N 更多线索」直接在当前地标
+               原位置显示预渲染的 .pm-latent 全部剩余线索（沿用 .pm-sat 地图注记，不打开浮层 / 第二阅读器）。
+               展开后高度自然增长、下面地标顺势下推，整页由浏览器正常滚动。 */
             const el = document.querySelector('.pm-anchor[data-anchor="' + key + '"]');
             if (!el) return;
             const open = !el.classList.contains("is-open");
@@ -10628,20 +11052,19 @@ Inner Compass 不是替填写者找到职业答案，而是让一个模糊的「
                 more.setAttribute("aria-expanded", open ? "true" : "false");
                 more.textContent = open ? "收起" : (more.dataset.moreLabel || "更多线索");
             }
+            /* v5.63：展开 / 收起改变地图高度（.pm-latent 是 display 切换，高度同步变化）。
+               重算 PM.worldH 后：
+                 · 相机正推近在某地标上 → 只同步窗口高度基准，保持当前取景，不打断阅读；
+                 · 静止「全图」态 → 立即重新取景（不缓动、不滚动页面），整张地图仍一屏可见、
+                   不多留空、不裁切。 */
+            if (!PM.stacked) {
+                const world = document.getElementById("pmWorld");
+                const stage = document.getElementById("pmStage");
+                if (world) PM.worldH = world.offsetHeight || PM.worldH;
+                if (stage && stage.classList.contains("is-camera")) pmCameraSyncWindow();
+                else pmCameraFit();
+            }
         }
-
-        /* ---------- v5.42 Floating Clue Layer ----------
-           只有一句职责：「让我看看这个地标还有哪些东西。」
-             · 不是 modal：无 backdrop、不锁 body scroll、不使用 aria-modal
-             · 不移动 / 不改变任何 Anchor 的几何位置
-             · 同一时间最多一个；切换地标 = 换内容，不叠加
-             · clue 列表完全来自当前 Anchor 的 sats（buildPerceptualModel 派生）
-             · 点击某条 clue → 既有 openCompassDetail() 读完整原文
-             · 不新增 state / answer key / 关系 / 推断 / AI */
-        let _pmClueKey = null;
-        let _pmClueTrigger = null;
-
-        function pmClueLayerEl() { return document.getElementById("pmClueLayer"); }
 
         function pmResetMoreButton(more) {
             if (!more) return;
@@ -10649,123 +11072,260 @@ Inner Compass 不是替填写者找到职业答案，而是让一个模糊的「
             more.textContent = more.dataset.moreLabel || "更多线索";
         }
 
-        function pmClueItemHTML(n) {
-            const type = n.type || "node";
-            const text = pmSatText(n) || "";
-            return `<li><button type="button" class="pm-clue-item" data-node-id="${escapeHtml(n.id)}" data-type="${escapeHtml(type)}" aria-label="打开线索：${escapeHtml(text)}，查看这项线索的完整记录"><span class="pm-clue-dot" aria-hidden="true"></span><span class="pm-clue-text">${escapeHtml(text)}</span></button></li>`;
-        }
+        /* ---------- Map Reading / Evidence Semantic Layer（v5.56，自 v5.55 移植）----------
+           纯派生层：地图 node 与 evidence 解耦、multitag 组化、core_values item-level、
+           reality_classification 分类化、structured field-level 的统一派生。
+           它不再是“Field Note 专属模型”，而是 Map Mode 的共享阅读 / 证据模型：
+             · 地图上的「更多线索」轻量索引 用它（只列隐藏线索、只列标题，不打印完整原文）
+             · 「深入阅读」完整阅读 也用它（同一语义结构，完整原文）
+           不变量：不改 state / answer key / localStorage / STATE_VERSION / STEPS / PM_ANCHORS /
+           PM_TRAILS / buildMapNodes() 数据职责；无关键词匹配 / 语义聚类 / AI 推断；
+           模式来自 STEPS 的问题 type（读 schema，不猜文本语义）。 */
+        const FN_MODE_BY_QUESTION_TYPE = {
+            textarea: "single",
+            structured: "structured",
+            multitag: "tag-cluster",
+            valuesorter: "ranked-items",
+            reality_classify: "classified-cluster"
+        };
+        /* reality_classification 的分组顺序 = 问卷给出的分类顺序 */
+        const FN_PRIORITY_ORDER = ["must", "prefer", "flexible", "unknown"];
 
-        function renderPmClueLayer(anchorKey) {
-            const model = buildPerceptualModel(getCompassData());
-            const a = model.anchors.filter(x => x.meta.key === anchorKey)[0];
-            if (!a || !a.sats.length) return null;
-            const meta = a.meta;
-            /* v5.47：结构向 Field Note / Cartographic Annotation 靠拢 ——
-               「NN / 地标名 → FIELD NOTE → 测绘分隔线 → 记录列表 → 还有 N 条记录」。
-               N 是「地图上那一行摘要之外还剩下的记录数」，所以「还有」是诚实的。 */
-            const stationNo = String(PM_ANCHORS.findIndex(m => m.key === anchorKey) + 1).padStart(2, "0");
-            return `
-                <div class="pm-clue-head">
-                    <div>
-                        <h3 class="pm-clue-title" id="pmClueTitle"><span class="pm-clue-no" aria-hidden="true">${stationNo}</span> / ${escapeHtml(meta.title)}</h3>
-                        <p class="pm-clue-note-label">Field Note</p>
-                    </div>
-                    <button type="button" class="pm-clue-close" data-pm-clue-close aria-label="关闭线索">×</button>
-                </div>
-                <hr class="pm-clue-rule" />
-                <ul class="pm-clue-list">${a.sats.map(pmClueItemHTML).join("")}</ul>
-                <p class="pm-clue-foot">还有 ${a.sats.length} 条记录</p>`;
-        }
-
-        function openPmClueLayer(anchorKey, trigger) {
-            if (!anchorKey || pmIsStacked()) return;
-            const stage = document.getElementById("pmStage");
-            if (!stage) return;
-            const html = renderPmClueLayer(anchorKey);
-            if (html == null) return;
-
-            let layer = pmClueLayerEl();
-            if (!layer) {
-                layer = document.createElement("div");
-                layer.className = "pm-clue-layer";
-                layer.id = "pmClueLayer";
-                layer.tabIndex = -1;
-                layer.setAttribute("role", "dialog");
-                layer.setAttribute("aria-labelledby", "pmClueTitle");
-                document.body.appendChild(layer);
+        let _fnQuestionIndex = null;
+        function fnQuestionOf(sourceKey) {
+            if (!_fnQuestionIndex) {
+                _fnQuestionIndex = {};
+                STEPS.forEach(step => (step.questions || []).forEach(q => { _fnQuestionIndex[q.id] = q; }));
             }
-            /* 切换地标：清掉上一个地标的状态，保证只有一个线索层 */
-            stage.querySelectorAll(".pm-anchor.is-clue-open").forEach(el => {
-                el.classList.remove("is-clue-open");
-                pmResetMoreButton(el.querySelector(".pm-more"));
+            return _fnQuestionIndex[sourceKey] || null;
+        }
+
+        function fnModeFor(sourceKey) {
+            const q = fnQuestionOf(sourceKey);
+            const mode = q && FN_MODE_BY_QUESTION_TYPE[q.type];
+            return mode || "single";
+        }
+
+        /* tag-cluster / classified-cluster：多个 tag 共享同一上下文，没有独立更深层内容 */
+        function fnIsGroupMode(sourceKey) {
+            const mode = fnModeFor(sourceKey);
+            return mode === "tag-cluster" || mode === "classified-cluster";
+        }
+
+        function fnTextOf(value) {
+            if (value == null) return "";
+            if (Array.isArray(value)) return value.map(fnTextOf).filter(Boolean).join("、");
+            if (typeof value === "object") return Object.keys(value).map(k => fnTextOf(value[k])).filter(Boolean).join(" · ");
+            return String(value).trim();
+        }
+
+        /* buildFieldNoteModel(data, anchorKey) → 该地标的 evidence group 模型
+           groups: [{ id, sourceKey, mode, questionLabel, items[], subgroups[] }]
+           items:  { nodeId|null, label, text, field, rank, explanation, priority, hasDetail }
+           只有 hasDetail 为真且 nodeId 非空的 item 才允许进入 Detail Panel。 */
+        function buildFieldNoteModel(data, anchorKey) {
+            const meta = pmAnchorMetaOf(anchorKey);
+            if (!meta) return null;
+            const compass = data || getCompassData();
+            const nodes = buildMapNodes(compass).filter(n => meta.sourceKeys.indexOf(n.sourceKey) > -1);
+            const groups = [];
+
+            meta.sourceKeys.forEach(sourceKey => {
+                const mode = fnModeFor(sourceKey);
+                const own = nodes.filter(n => n.sourceKey === sourceKey);
+                const byField = {};
+                const byLabel = {};
+                own.forEach(n => {
+                    if (n.sourceField) byField[n.sourceField] = n;
+                    const key = String(n.label == null ? "" : n.label);
+                    if (!(key in byLabel)) byLabel[key] = n;
+                });
+                const group = {
+                    id: "fn-" + anchorKey + "-" + sourceKey,
+                    sourceKey,
+                    mode,
+                    questionLabel: QUESTION_LABELS[sourceKey] || "",
+                    items: [],
+                    subgroups: []
+                };
+
+                if (mode === "tag-cluster") {
+                    /* 同题多 tag：每个 tag 是一条 clue，整组只出现一次 question context */
+                    own.forEach(n => group.items.push({
+                        nodeId: n.id,
+                        label: String(n.label == null ? "" : n.label),
+                        hasDetail: false
+                    }));
+                } else if (mode === "classified-cluster") {
+                    /* 同题按 priority 分组；priority 是用户独立给出的语义属性，不是推断 */
+                    FN_PRIORITY_ORDER.forEach(p => {
+                        const items = own.filter(n => n.priority === p).map(n => ({
+                            nodeId: n.id,
+                            label: String(n.label == null ? "" : n.label),
+                            priority: p,
+                            hasDetail: false
+                        }));
+                        if (!items.length) return;
+                        group.subgroups.push({ key: p, label: priorityLabel(p), items });
+                        items.forEach(i => group.items.push(i));
+                    });
+                } else if (mode === "ranked-items") {
+                    /* 每个 item 有独立 rank + 解释 → 独立 evidence */
+                    own.slice().sort((a, b) => (a.rank || 0) - (b.rank || 0)).forEach(n => group.items.push({
+                        nodeId: n.id,
+                        label: String(n.label == null ? "" : n.label),
+                        rank: n.rank != null ? n.rank : null,
+                        explanation: typeof n.sublabel === "string" ? n.sublabel : "",
+                        hasDetail: true
+                    }));
+                } else if (mode === "structured") {
+                    /* 每个 field = 一条 evidence，顺序取问卷声明顺序。
+                       字段若没有地图节点（例如 trade_off.accept），仍保留原文，只是不可点击。 */
+                    const raw = getAnswer(sourceKey);
+                    const q = fnQuestionOf(sourceKey);
+                    const defs = (q && Array.isArray(q.fields) && q.fields.length)
+                        ? q.fields.map(f => ({ key: f.key, label: f.label }))
+                        : Object.keys(raw || {}).map(k => ({ key: k, label: k }));
+                    defs.forEach(def => {
+                        const text = fnTextOf(raw ? raw[def.key] : "");
+                        if (!text) return;
+                        const n = byField[def.key] || byLabel[text] || null;
+                        group.items.push({
+                            nodeId: n ? n.id : null,
+                            field: def.label,
+                            text,
+                            type: n ? (n.type || "node") : "",
+                            hasDetail: !!n
+                        });
+                    });
+                } else {
+                    /* single：一个开放回答 = 一条 evidence */
+                    const text = fnTextOf(getAnswer(sourceKey));
+                    if (text) {
+                        const n = own[0] || byLabel[text] || null;
+                        group.items.push({
+                            nodeId: n ? n.id : null,
+                            field: (n && n.field) ? n.field : "",
+                            text,
+                            type: n ? (n.type || "node") : "",
+                            hasDetail: !!n
+                        });
+                    }
+                }
+
+                if (group.items.length) groups.push(group);
             });
 
-            layer.innerHTML = html;
-            _pmClueKey = anchorKey;
-            _pmClueTrigger = trigger || document.activeElement;
-            pmFocusAnchor(anchorKey);
-
-            const anchorEl = stage.querySelector('.pm-anchor[data-anchor="' + anchorKey + '"]');
-            if (anchorEl) {
-                anchorEl.classList.add("is-clue-open");
-                const more = anchorEl.querySelector(".pm-more");
-                if (more) { more.setAttribute("aria-expanded", "true"); more.textContent = "收起"; }
+            const countItems = groups.reduce((sum, g) => sum + g.items.length, 0);
+            let summaryNode = null;
+            for (let i = 0; i < meta.summaryKeys.length && !summaryNode; i++) {
+                summaryNode = nodes.filter(n => n.sourceKey === meta.summaryKeys[i])[0] || null;
             }
-            layer.classList.add("is-open");
-            pmPositionClueLayer(layer, anchorEl);
-            const first = layer.querySelector(".pm-clue-item");
-            if (first) first.focus(); else layer.focus();
-            const meta = pmAnchorMetaOf(anchorKey);
-            announce((meta ? meta.title : "这个地标") + " 还有 " + layer.querySelectorAll(".pm-clue-item").length + " 条线索");
+            return {
+                anchorKey,
+                meta,
+                stationNo: String(PM_ANCHORS.findIndex(m => m.key === anchorKey) + 1).padStart(2, "0"),
+                title: meta.title,
+                groups,
+                summaryNodeId: summaryNode ? summaryNode.id : null,
+                stats: { groups: groups.length, items: countItems }
+            };
         }
 
-        function closePmClueLayer(silent) {
-            const key = _pmClueKey;
-            _pmClueKey = null;
-            const stage = document.getElementById("pmStage");
-            if (key && stage) {
-                const el = stage.querySelector('.pm-anchor[data-anchor="' + key + '"]');
-                if (el) {
-                    el.classList.remove("is-clue-open");
-                    pmResetMoreButton(el.querySelector(".pm-more"));
+        /* 真实统计（内部可用；v5.56 起不再作为用户可见的 Field Note footer / Deep Reading 统计行） */
+        function fieldNoteStatsText(stats) {
+            if (!stats || !stats.groups) return "这里还没有记录";
+            return stats.groups + " 组记录 / " + stats.items + " 项线索";
+        }
+
+        /* ---------------- 共用渲染 A：深入阅读（完整 anchor 阅读）----------------
+           同一语义结构：question 出现一次 + 该组的 evidence，完整原文、不截断、不摘要。 */
+
+        function fnTagHTML(item, anchorKey) {
+            const label = escapeHtml(item.label);
+            return `<li class="fn-token"><button type="button" class="fn-tag" data-fn-tag="1" data-node-id="${escapeHtml(item.nodeId || "")}" data-anchor-key="${escapeHtml(anchorKey)}" aria-label="聚焦「${label}」；它与同一道题的其它选项属于同一组记录"><span class="fn-mark" aria-hidden="true"></span><span class="fn-tag-text">${label}</span></button></li>`;
+        }
+
+        function fnTokensHTML(items, anchorKey) {
+            return `<ul class="fn-tokens">${items.map(i => fnTagHTML(i, anchorKey)).join("")}</ul>`;
+        }
+
+        function fnTextItemHTML(item, anchorKey) {
+            /* ranked-items：词 + 独立解释（可进入 Detail；无解释时给温和提示） */
+            if (item.rank != null) {
+                const wordHTML = (item.hasDetail && item.nodeId)
+                    ? `<button type="button" class="fn-word" data-node-id="${escapeHtml(item.nodeId)}" aria-label="打开 ${escapeHtml(item.label)} 的完整记录">${escapeHtml(item.label)}</button>`
+                    : `<span class="fn-word is-static">${escapeHtml(item.label)}</span>`;
+                const expl = item.explanation && String(item.explanation).trim();
+                const explHTML = expl
+                    ? `<p class="fn-item-text">${escapeHtml(item.explanation)}</p>`
+                    : `<p class="fn-item-text is-empty"><em>这个词你还没补充它对你具体意味着什么。可以回到 Journey 在词旁点「＋ 补充」写下。</em></p>`;
+                return `<li class="fn-item"><div class="fn-item-head"><span class="fn-rank">第 ${item.rank} 位</span>${wordHTML}</div>${explHTML}</li>`;
+            }
+
+            const text = escapeHtml(item.text || "");
+            if (!text) return "";
+            const headHTML = item.field ? `<p class="fn-item-head"><span class="fn-field">${escapeHtml(item.field)}</span></p>` : "";
+            const bodyHTML = (item.hasDetail && item.nodeId)
+                ? `<button type="button" class="fn-item-open" data-node-id="${escapeHtml(item.nodeId)}" data-type="${escapeHtml(item.type || "node")}" aria-label="打开「${escapeHtml(item.field || item.label || "")}」的完整记录"><span class="fn-dot" aria-hidden="true"></span><span>${text}</span></button>`
+                : `<p class="fn-static">${text}</p>`;
+            return `<li class="fn-item">${headHTML}${bodyHTML}</li>`;
+        }
+
+        function renderFieldNoteGroupsHTML(model) {
+            if (!model) return "";
+            const anchorKey = model.anchorKey;
+            return model.groups.map(g => {
+                let bodyHTML;
+                if (g.mode === "tag-cluster") {
+                    bodyHTML = fnTokensHTML(g.items, anchorKey);
+                } else if (g.mode === "classified-cluster") {
+                    bodyHTML = `<div class="fn-subgroups">${g.subgroups.map(sg =>
+                        `<div class="fn-subgroup"><p class="fn-sub-label">${escapeHtml(sg.label)}</p>${fnTokensHTML(sg.items, anchorKey)}</div>`
+                    ).join("")}</div>`;
+                } else {
+                    bodyHTML = `<ul class="fn-items">${g.items.map(i => fnTextItemHTML(i, anchorKey)).join("")}</ul>`;
                 }
-            }
-            const layer = pmClueLayerEl();
-            if (layer) {
-                layer.classList.remove("is-open");
-                if (layer.parentNode) layer.parentNode.removeChild(layer);
-            }
-            const trigger = _pmClueTrigger;
-            _pmClueTrigger = null;
-            if (stage && stage.classList.contains("is-focused")) pmFocusAnchor(null);
-            if (!silent && trigger && trigger.isConnected && typeof trigger.focus === "function") {
-                try { trigger.focus({ preventScroll: true }); } catch (err) { trigger.focus(); }
-            }
+                return `<section class="fn-group" data-fn-mode="${escapeHtml(g.mode)}" data-source-key="${escapeHtml(g.sourceKey)}">
+                    <p class="fn-question">${escapeHtml(g.questionLabel)}</p>
+                    ${bodyHTML}
+                </section>`;
+            }).join("");
         }
 
-        /* 位置：贴着当前地标的左 / 右侧，垂直对齐地标上沿；
-           只做视口夹取，不改动任何 Anchor 的定位。 */
-        function pmPositionClueLayer(layer, anchorEl) {
-            layer.style.left = "";
-            layer.style.top = "";
-            if (!anchorEl) return;
-            const a = anchorEl.getBoundingClientRect();
-            const sx = window.pageXOffset || document.documentElement.scrollLeft || 0;
-            const sy = window.pageYOffset || document.documentElement.scrollTop || 0;
-            const lw = layer.offsetWidth, lh = layer.offsetHeight;
-            const M = 16, GAP = 22;
-            const vw = window.innerWidth;
-            let left = a.right + sx + GAP;
-            if (left + lw > sx + vw - M) {
-                const alt = a.left + sx - GAP - lw;
-                left = alt >= sx + M ? alt : Math.max(sx + M, Math.min(sx + vw - lw - M, left));
-            }
-            let top = a.top + sy + Math.min(48, a.height / 2) - 18;
-            const minTop = sy + M;
-            const maxTop = sy + window.innerHeight - lh - M;
-            top = Math.max(minTop, Math.min(top, Math.max(minTop, maxTop)));
-            layer.style.left = Math.round(left) + "px";
-            layer.style.top = Math.round(top) + "px";
+        /* tag 的位置语义：点击只改变 focus / highlight，不打开重复的 Detail Panel */
+        function pmFocusEvidenceTag(btn) {
+            if (!btn || !btn.dataset || !btn.dataset.nodeId) return;
+            const nodeId = btn.dataset.nodeId;
+            const node = buildMapNodes(getCompassData()).filter(n => n.id === nodeId)[0];
+            if (!node) return;
+            document.querySelectorAll(".fn-tag.is-focus, .pm-sat.is-focus").forEach(el => {
+                el.classList.remove("is-focus");
+                el.removeAttribute("aria-current");
+            });
+            btn.classList.add("is-focus");
+            btn.setAttribute("aria-current", "true");
+            highlightNodeRelationship(nodeId);
+            announce(`已聚焦「${pmSatText(node) || node.label}」——它与同一道题的其它选项属于同一组记录`);
+        }
+
+        /* 该 node 是否属于 evidence group（tag-cluster / classified-cluster）：
+           是 → 按 tag 语义处理（只聚焦、不进 Detail）并返回 true；否则返回 false，交回原路径。 */
+        function pmFocusTagNodeIfGroupMember(btn) {
+            const nodeId = btn && btn.dataset ? btn.dataset.nodeId : "";
+            if (!nodeId) return false;
+            const node = buildMapNodes(getCompassData()).filter(n => n.id === nodeId)[0];
+            if (!node || !fnIsGroupMode(node.sourceKey)) return false;
+            pmFocusEvidenceTag(btn);
+            return true;
+        }
+
+        /* 地图 tag 节点的 aria-label：不再宣称「查看完整记录」——它只有聚焦语义 */
+        function pmSatAriaLabel(node) {
+            const text = pmSatText(node) || "";
+            return fnIsGroupMode(node.sourceKey)
+                ? `聚焦线索：${text}；它与同一道题的其它选项属于同一组记录`
+                : `打开线索：${text}，查看这项线索的完整记录`;
         }
 
         /* v5.30.5：vision summary 展开/收起本地切换，仅影响本 anchor 内布局 */
@@ -10781,8 +11341,13 @@ Inner Compass 不是替填写者找到职业答案，而是让一个模糊的「
             btn.textContent = open ? "↕ 收起" : "↕ 展开";
         }
         function clearRelationshipHighlights() {
-            pmFocusAnchor(null);
+            pmCameraExit();
             document.querySelectorAll(".pm-anchor.is-pulsing").forEach(el => el.classList.remove("is-pulsing"));
+            /* v5.56：清掉 tag / clue 上的本地 focus 标记，避免离开地图后残留 */
+            document.querySelectorAll(".fn-tag.is-focus, .pm-sat.is-focus").forEach(el => {
+                el.classList.remove("is-focus");
+                el.removeAttribute("aria-current");
+            });
         }
 
         /* 点击节点时，提升它所属的 Anchor 与真实参与的路径（不新增任何关系） */
@@ -10827,7 +11392,7 @@ Inner Compass 不是替填写者找到职业答案，而是让一个模糊的「
         document.addEventListener("DOMContentLoaded", init);
     </script>
     <footer class="page-footer" data-page-node-id="qI2TjVVR1ceVWvmJrsPltG">
-        <div data-page-node-id="gkdLI0X0LOfXzFfvDxNvjm">Created by Leah / 公众号<a href="https://mp.weixin.qq.com" target="_blank" rel="noopener" data-page-node-id="IHLdmqOo5L9rHtBJnIuMQ1">@D小调片段记录</a> · Inner Compass 内在罗盘 v5.53</div>
+        <div data-page-node-id="gkdLI0X0LOfXzFfvDxNvjm">Created by Leah / 公众号<a href="https://mp.weixin.qq.com" target="_blank" rel="noopener" data-page-node-id="IHLdmqOo5L9rHtBJnIuMQ1">@D小调片段记录</a> · Self Discovery Framework v5.68</div>
         <div data-page-node-id="BTqcCM7Bu1caEvWSHLrHS3">所有数据仅保存在当前设备，不会上传至服务器。如在公共设备上使用，请勿留存私人记录。</div>
     </footer>
 </body>
