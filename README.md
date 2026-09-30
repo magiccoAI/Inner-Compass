@@ -19,6 +19,12 @@ Inner Compass 是一份为**自我整理而设计的问题与书写空间**。
 
 真正发生的部分，在你愿不愿意停下来，重新写一遍关于自己的东西。
 
+在线使用：
+https://magiccoai.github.io/Inner-Compass/
+
+保存到电脑：
+https://magiccoai.github.io/Inner-Compass/download.html
+
 ---
 
 ## 这是什么
