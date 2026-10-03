@@ -91,8 +91,6 @@ Inner Compass 最开始并不是从「做一个问卷」开始的。
 再把理想生活真正连接到工作、把现实放回坐标里、把「想清楚」改成「继续了解」，
 最后让 AI 只作为一个可选的外部阅读出口。
 
-而每个版本具体改了什么，则逐条记在 `CHANGELOG.md`。
-
 ---
 
 ## 它不负责替你探索
@@ -660,7 +658,6 @@ Inner Compass 已经经历了多轮：
 # 延伸阅读
 
 - **[Inner Compass｜构建过程阶段记录](./INNER_COMPASS_BUILD_LOG.md)** —— 这个项目是怎么一步步长成现在这样的
-- `CHANGELOG.md` —— 每个版本改了什么
 - [在线使用](https://magiccoai.github.io/Inner-Compass/)
 - [下载到自己的设备](https://magiccoai.github.io/Inner-Compass/download.html)
 
