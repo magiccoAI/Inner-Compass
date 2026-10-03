@@ -1,5 +1,31 @@
 # Inner Compass（内在罗盘）变更记录
 
+## v5.73（2026-10-04）— 全站文字对比度 / 可读性修补（WCAG 2.1 AA）【当前活动基】
+
+**性质**：**只改 CSS 声明级 + 4 处 accent 底白字改走新令牌 + 一处行内 style**——零 DOM 结构 / 零 JS 逻辑 / 零数据模型 / 零 state 改动。`STATE_VERSION(7)` / `STORAGE_KEY` / STEPS(7 阶段 18 题) / 18 题 answer key / PM_ANCHORS / PM_TRAILS / buildMapNodes / buildMapRelationships / Map 相机交互 / 顶栏静态页头契约 / Record Mode / Export / 加密备份 / 无障碍语义全部未动。
+
+### 触发
+Leah 反馈两类文字「发虚、边缘发糊，最高亮度下仍不够清晰」：① 非粗体（regular）正文；② 偏浅绿色的文字。要求按 WCAG 2.1 AA 逐项核算（正文 <18pt 且非粗体 ≥4.5:1；≥18pt 或 ≥14pt 粗体 ≥3:1），保留绿色系调性。
+
+### 核算口径
+带 `opacity` 的文字**一律先做 alpha 合成、再算有效对比度**（这是「令牌都达标但看起来仍糊」的主因）；背景按 6 档浅色基准分别取（页面底 / 卡片底 / 面板实底 / 两档 accent-soft 叠加 / 状态胶囊底）。
+
+### 改动
+1. **颜色令牌（浅色主题 4 个，覆盖 11 个失败项）**：`--ink-soft` #59655d→**#4d5a52**（5.46→6.49:1）；`--ink-faint` #6b756b→**#5a665e**（对页面底 4.29→5.38:1，此前**页面底不达标**）；`--good` #3a7a5f→**#2f6a51**（浅底叠加 4.26→5.70:1）；`--warn` #a06b3a→**#8a5a2c**（4.04→5.26:1）。`--accent-warm` **不改**（只作圆点 / 色块，图形类 ≥3:1 已达标）。深色主题令牌实测全部达标，未动。
+2. **accent 底文字**：新增 `--on-accent`（浅 #ffffff / 深 **#10201a**）——深色主题 `--accent` 变亮绿 #77bf9a，白字仅 **2.16:1**；`.primary-btn` / `.mode-btn.active` / `.phase-pill.active` / `.skip-link` 四处统一改走该令牌（深色主题 2.16→**7.71:1**）。
+3. **地图「注意力调暗」下限（唯一触及既有视觉叙事）**：opacity 会直接乘进文字对比度——焦点态非当前地标 **.58** 时星座词只剩 3.71:1；统一抬到下限 **.96**：`--rest` far .88→.96 / mid .92→.97 / near .96→.98 / path 1 / secondary .88→.96 / 未成形 .78→.96；焦点态 .58→.96、related .85→.98；移动端 .88→.96、相邻 .90→.98；reduced-motion 分支同步。「退让」改由 marker 缩放 / route reveal / 标题下划线承担；调暗幅度收窄到 1↔.96，若要恢复强退让需接受文字不达 AA。
+4. **opacity 衰减**：`.pm-sat` 密度档 .92/.86/.74 → **1/.97/.94**（高密度 .74 时星座词仅 3.58:1）；移动端 .96→1；`.pm-trail-note` .48→**.72**；`.pm-route-line i` .5→.95；`.pm-datum`（⌖ 这里）.72→**1**；`.page-footer` .75→**1**（3.23→5.38:1）。
+5. **字号 / 字重**：`.pm-eyebrow` 11→**12px** 且字距 `.14em`→**`.04em`**（中文等宽，宽字距把字拆散）、移动端 12→12.5px；`.pm-more` 11→12px、`.pm-read` 11.5→12.5px、`.pm-jump` 11→12px、`.pm-plate .pm-route-line` 11→12px、`.pm-legend` / `.pm-footnote` 11.5→12.5px、`.pm-footnav-stop` 10.5→**12px** 且字距 .08em→.04em、`.ai-radio-sub` 11.5→12px；13–14px 常规正文 400→**500**（`.question-guide` / `.pm-summary` / `.nav-meta` / `.fn-item-text`；`.pm-summary.is-vision` 450→500）——Noto Sans SC 为本机可变字体，不会伪粗体发虚；`.record-answer-empty` 去掉 **font-style: italic**（中文伪斜体笔画最糊）；`.rp-foot` 9.5pt→10pt；Ctrl+←/→ 提示 11px+opacity .65（有效 **2.48:1**）→ 12px 不透明。
+6. **导出 PDF**：`.rp-empty` / `.rp-foot` #9aa39c→**#5a665e**（白底 2.60→6.01:1，最严重两项）；`.rp-empty` 去斜体。
+7. 版本号元数据一致化（文件头 `Version:` / banner / `<meta>` ×2 / 页脚署名）。
+
+### 验证（真浏览器，Edge headless + CDP，`_verify_v573_contrast.js`）
+逐元素取计算样式（文字有效色 = color alpha 合成 × 祖先累计 opacity；背景 = 自最外层不透明祖先向内合成；排除 `aria-hidden` 气氛重影与纯符号）。**同一套审计：v5.72 基线 69 项未达标 → v5.73 全部 8 个视图（Welcome / 填写页 / 地图 / 详情面板 / 完整记录 / 进度抽屉 / 移动端 390px / 深色主题）0 项未达标**；16 PASS / 0 FAIL，运行期零 JS 异常。
+回归：`_e2e_v573_nav.js`（返回入口全路径）**35 PASS / 0 FAIL**；`_e2e_v573_cam.js`（地图相机）**47 PASS / 0 FAIL**。
+
+**产出**：`最终公开版inner_compass_v5_optimized_v5.73.html`（v5.72 原件保留）。发布件 index.html / download.html 已本地收敛（备份 `_pre_v572_*`），**尚未 commit / push**。
+
+
 ## v5.71（2026-09-30）— 深读面板可读性 + 段落节奏 + 思源宋体（纯系统字体栈）【当前活动基】
 
 **性质**：**只改 CSS 声明**——零 DOM / 零 JS / 零数据 / 零结构改动（`_verify_v571_reverse_diff.py` 逐字节证明 `<style>` 之外 487KB 完全相同）。

@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
-Camera Map（基于 v5.50 相机版设计）→ v5.71 最终版（当前正式交互 · 已取消试验标签；Welcome 海报主标题为 v5.53 定稿的「慢慢整理自己的生活线索，看见自己的当前坐标。」——该句在 v5.56 相机分叉时丢失，本版追回；顶栏为静态页头——静态放在页面顶部、随页面滚动移出视野，不吸顶、不悬浮；静止态 = 「全图」——整张地图按 fit 比例收拢进一屏并水平居中于内容列（transform-origin 50% 0），默认就能看到大部分 / 全部地标，且六个地标关于整页中线对称；「更多线索」=Anchor 内联展开全部剩余线索而非浮层；点击地标只做镜头推近（≈1.06×）并在相机窗口内平移缩放，绝不滚动页面；「← 全图」、点击地图空白或双击地标 = 相机退回全图取景，同样不滚动页面）
+Camera Map（基于 v5.50 相机版设计）→ v5.73 最终版（当前正式交互 · 已取消试验标签；Welcome 海报主标题为 v5.53 定稿的「慢慢整理自己的生活线索，看见自己的当前坐标。」——该句在 v5.56 相机分叉时丢失，本版追回；顶栏为静态页头——静态放在页面顶部、随页面滚动移出视野，不吸顶、不悬浮；静止态 = 「全图」——整张地图按 fit 比例收拢进一屏并水平居中于内容列（transform-origin 50% 0），默认就能看到大部分 / 全部地标，且六个地标关于整页中线对称；「更多线索」=Anchor 内联展开全部剩余线索而非浮层；点击地标只做镜头推近（≈1.06×）并在相机窗口内平移缩放，绝不滚动页面；「← 全图」、点击地图空白或双击地标 = 相机退回全图取景，同样不滚动页面）
   新增 Camera / World / Viewport 轻量相机层：点击「人生地点」→ 镜头轻移靠近（transform translate3d + scale，非 left/top）→ 复用既有 pmFocusAnchor / Focus / Related / Route；「更多线索」在 v5.59 起改为 Anchor 内联展开（预渲染 .pm-latent 直接显示），FIELD NOTE 产品概念与 Clue Layer 浮层已移除；完整阅读统一交给「深入阅读」（openAnchorPanorama）。
   不动：STATE_VERSION(7) / STORAGE_KEY / STEPS / 18 题 answer keys / PM_ANCHORS / PM_TRAILS / buildMapNodes / buildMapRelationships / findNodeRelations / Record Mode / Export / Experiment Feedback / 加密备份 / 无障碍语义。
   无新增依赖 / 图片 / Canvas / WebGL / Three.js / GSAP；单 rAF(pmTick) 驱动 camera easing；reduced-motion 下禁相机动画、立即到达。
@@ -8,9 +8,18 @@ Camera Map（基于 v5.50 相机版设计）→ v5.71 最终版（当前正式�
 <!--
 Original work created by Leah / 公众号作者@D小调片段记录
 Project: Inner Compass (内在罗盘)
-Version: v5.71
+Version: v5.73
 Created: 2026
-Updated: 2026-09-30
+Updated: 2026-10-04
+v5.72 (2026-10-04)：离开罗盘后的返回入口补全（基于 v5.71；用户反馈：从方向地图点地标「去这一题」进填写页时顶部有「← 我的罗盘」，但从罗盘页头「填写进度 → 继续填写」或「回到 Journey」进同一个填写页时却没有，补充完不知道怎么回地图，也不知道再点一次「生成我的 Compass」能回去）。① 根因：返回入口只由一个页面级 transient 标记 _journeyReturnFromMap 决定，而它只在map 的 [data-jump-key]「去这一题」这一条路径上被置位；填写进度抽屉的 .progress-jump-btn与罗盘页头「回到 Journey」都直接改 state.showSummary 进入填写视图、从不置位 —— 且它是内存标记，刷新页面后即便从地标进来也会消失（真机核对：置位点 1 处 / 清除点 2 处 / 进入填写视图的路径 4 条）。② 改法：改用持久化可选 state 字段 compassReturn（旧存档没有这个 key → 默认 false，无需迁移，STATE_VERSION 维持 7），并抽出统一动作 returnToCompass()（清标记 → 回罗盘 →按离开时的 currentCompassView 还原「方向地图 / 完整记录」→ 同步 mode-btn 选中态 → 滚到顶部 → 焦点落到罗盘标题 → announce），返回入口不再散落在各处各写一遍。③ 置位路径补全为四条：map 地标「去这一题」（内置进 jumpToQuestion）、填写进度抽屉「继续填写 / 回看 · 修改」、罗盘页头「回到 Journey」、（空地图「返回填写」反向清除，那时还没有罗盘可回）；清除路径两条：点「← 我的罗盘」、点「生成我的 Compass」。④ 刷新后仍然有效：标记落在 localStorage，中途关掉页面回来仍看得到返回入口。⑤ Welcome 页 CTA 同步：state.started && (showSummary || compassReturn) 时文案为「回到我的罗盘」，并且点击真的回罗盘 —— 此前 startJourneyBtn 只会 refresh() 回填写页，是「从填写页点开场说明就再也回不到地图」的第二个死角。⑥ 填写进度抽屉：已完成阶段也能进去改（按钮由「继续填写」改为「回看 / 修改」，此前 completion >= 1 时不渲染按钮、无法从罗盘回去修改已填内容）；底部加一行常驻说明「改完这一题后，点填写区上方的「← 我的罗盘」，就能回到地图看它长出来。」。⑦ 进入填写视图后统一滚到顶部：返回入口与到达提示都在填写区顶部，落在半页会看不见。⑧ 硬性边界：零结构 / 零数据模型 / 零新增 answer key / 零新增持久化类型（仅一个可缺省的 布尔导航标记）；STATE_VERSION(7) / STORAGE_KEY / STEPS(7 阶段 18 题) / 18 题 answer key / PM_ANCHORS / PM_TRAILS / buildMapNodes / buildMapRelationships / Map 相机交互（全图 / 推近 / 回全图）/ 顶栏静态页头契约 / Record Mode / Export / Experiment Feedback / 加密备份 / 无障碍语义全部未动。
+v5.73 (2026-10-04)：全站文字对比度 / 可读性审查修补（基于 v5.72）。**只改 CSS 声明级 + 一处行内 style + 版本号元数据**——零 DOM / 零 JS 逻辑 / 零数据模型 / 零结构改动；STATE_VERSION(7) / STORAGE_KEY / STEPS(7 阶段 18 题) / 18 题 answer key / PM_ANCHORS / PM_TRAILS / buildMapNodes / buildMapRelationships / Map 相机交互（全图 / 推近 / 回全图）/ 顶栏静态页头契约 / Record Mode / Export / Experiment Feedback / 加密备份 / 无障碍语义全部未动。
+① 触发：Leah 反馈「非粗体正文」与「偏浅绿色文字」在各自背景上发虚、边缘发糊，最高亮度下仍不够清晰；按 WCAG 2.1 AA 逐项核算（正文 <18pt 且非粗体 ≥4.5:1；≥18pt 或 ≥14pt 粗体 ≥3:1；带 opacity 的文字一律先做 alpha 合成再算有效对比度）。
+② 令牌层（浅色主题，4 个令牌即可覆盖 11 个失败项）：--ink-soft #59655d→**#4d5a52**（5.46→6.49:1）、--ink-faint #6b756b→**#5a665e**（对页面底 4.29→5.38:1、对卡片底 →5.86:1，此前页面底不达标）、--good #3a7a5f→**#2f6a51**（浅底叠加时 4.26→5.70:1）、--warn #a06b3a→**#8a5a2c**（4.04→5.26:1）。--accent-warm #8d6844 **不改**——只作圆点 / 色块，属图形类（≥3:1 已达标），保留暖褐调性。深色主题令牌实测全部达标，未动。
+③ 局部：.journey-back-link 文字 #6b7b8c→**#566a7d**（卡片底 4.24→5.46:1、页面底 3.89→5.01:1，focus 描边同步）；导出 PDF 的 .rp-empty / .rp-foot #9aa39c→**#5a665e**（白底 2.60→6.01:1，.rp-foot 字号 9.5pt→10pt）；.pm-sat 的 opacity 是文字对比度杀手——高密度 .74 时实测仅 3.58:1，改为 low/medium/high = **1 / .95 / .90**（配合加深后的 --ink-soft，三档分别为 6.49 / 5.12 / 5.12:1，视觉层级仍在但全部达标），移动端 .96→**1**。
+④ 地图「注意力调暗」下限（本轮最大的一处，也是唯一触及既有视觉叙事的改动）：opacity 会直接乘进文字对比度——焦点态非当前地标 .58 时，--ink-soft 星座词只剩 3.71:1、--ink-faint 眉标只有 3.0:1；静息态 far / secondary .88、未成形地标 .78 同理偏低。统一抬到下限 .96：--rest far .88→**.96** / mid .92→.97 / near .96→.98 / path 1（不变）/ secondary .88→**.96** / data-pm-live=0 .78→**.96**；焦点态 .58→**.96**、related .85→**.98**、当前 1（不变）；移动端 .88→**.96**、相邻 .90→**.98**、当前 1；reduced-motion 分支同步。视觉上的「退让」改由 marker 缩放 / route reveal / 标题下划线承担，文字本身不再被压暗——与 v5.30 立下的「远近只改变注意力、不改变可读性，所有 Anchor 默认可辨识」一致。代价：调暗幅度从 1↔.58 收窄到 1↔.96，层次变轻；若 Leah 认为必须保留强退让，可改回强档但需接受文字不达 AA。
+⑤ 字号 / 字重（清晰度不全是颜色问题）：.pm-eyebrow 11→12px 且字距 .14em→**.04em**（中文等宽，宽字距把字拆散）、移动端 12→12.5px；.pm-more 11→12px、.pm-read 11.5→12.5px、.pm-jump 11→12px、.pm-legend / .pm-footnote 11.5→12.5px、.pm-footnav-stop 10.5→12px 且字距 .08em→.04em、.ai-radio-sub 11.5→12px、移动端 .pm-trail-note 11→12px 且 opacity .48→**.72**（小字 + 透明度双重衰减）；13–14px 常规正文 400→**500**（.question-guide / .pm-summary / .nav-meta / .fn-item-text；.pm-summary.is-vision 450→500）——Noto Sans SC 为本机可变字体、字重轴完整，不会产生伪粗体发虚；.record-answer-empty 去掉 **font-style: italic**（中文斜体是伪斜体、笔画最糊，改用色阶区分「未填写」）；「⌖ 这里」datum 标记 9px+opacity .72（有效 2.60:1）→ **11px + 不透明**、字距 .16em→.1em；路线分隔符「→」opacity .5→**.95**；Ctrl+←/→ 提示行 11px + opacity .65（有效对比度仅 2.48:1）→ **12px + 不透明**（5.86:1）。
+⑥ 口径：层级一律用**色阶**表达，不再用 opacity 压低文字对比度；同一元素不同密度的差异仍保留（1 / .95 / .90），只是不再跌破 4.5:1。
+
 v5.71 (2026-09-30)：深入阅读面板可读性与段落节奏 + 思源宋体（基于 v5.70）。① 字体：新增 --font-sans / --font-serif，展示层（Welcome 海报主标题 / hero h1 / 详情面板题签 .compass-detail-head h3）改用衬线「思源宋体」——本机 Noto Serif SC 即其 Google 版，可变字体、字重轴完整，纯系统字体栈命中，零 CDN / 零 @font-face，维持单文件离线叙事；正文 / UI / 用户自己写下的字仍为无衬线。② 可读性：详情面板栏位名（.fn-item-head / .fn-field / .fn-rank / .fn-sub-label）原为 11px + --ink-faint + letter-spacing .12em（对比度 4.72:1、观感发虚），改为 13px / font-weight 600 / 字距 0.65px / 深墨色（对比度 12.08:1，AAA）。③ 段落节奏：.fn-body gap 14→24px；.fn-group + .fn-group padding-top 12→18px（分割线上下留白）；.fn-question 12.5→13.5px / line-height 1.7 / margin-bottom 12px；.fn-item + .fn-item 10→14px。④ 硬性边界：纯 CSS 声明级改动——零 DOM / 零 JS / 零数据模型 / 零 state；反向差分证明样式块之外（除版本号元数据行）逐字节不变。⑤ 断行契约量测：.poster-title 的 max-width:11ch 在宋体下每行像素宽与无衬线完全相同（中文 advance 恒 1em），10 档宽度一律 4 行，契约未破坏；.hero h1 的 -.04em 负字距保留（归零反而退化为 4 行）。⑥ 真浏览器验证 22 PASS / 0 FAIL；字体像素指纹确认 Noto Serif SC 真命中（非 SimSun、非通用回退、非无衬线）。
 v5.69 (2026-09-30)：Welcome 海报主标题文案追回（基于 v5.68）。① 缺陷定位：v5.53（2026-09-24，git 8ea513a「开场白文案更新」）已把 Welcome Poster 主标题与 download.html 主标题由「把人生问题，慢慢变成自己的语言」改为「慢慢整理自己的生活线索，看见自己的当前坐标。」，但该次改动只就地写进已发布件 index.html / download.html，**未产出任何带版本号的源文件**；v5.56（相机升正式）从 v5.50 相机试验分支出发（分叉点早于 v5.53），因而未带上该改动 —— v5.56 → v5.68 每一版都继承旧句，属「分叉丢改动」，不是有人撤回。② 线上不一致（真实缺陷）：v5.68 发布（git 5edfda4）把 v5.68 源文件整文件复制进 index.html，旧句被写回发布件；download.html 该次只同步 meta 版本号、未动主标题，于是新句幸存 —— 两个已发布页面文案自相矛盾。③ 本版只做文案层追回：.poster-title 文本改回 v5.53 定稿版本；.poster-title 的 CSS（max-width:11ch / clamp(24px,4vw,38px) / line-height:1.06）**一字未动**，与 v5.53 当时「CSS 一律未动、未擅自改断行」的处理保持一致。④ 版本号 v5.68 → v5.69：文件头 Version: + 新增本行 + <meta name="description"> + <meta name="version"> + 页脚署名行。⑤ 单点性证明：v5.5x 线与 v5.68 的整个 welcome 区块（左侧 6 段 lead + 3 枚 note-chip + CTA + 右侧 3 张 panel 卡）**只有海报标题这一行不同**，其余文案逐字一致 ⇒ 单点追回、无连带改动。⑥ 硬性边界：零结构 / 零字段 / 零数据模型 / 零 state 改动 —— STATE_VERSION(7) / STORAGE_KEY / STEPS(7 阶段 18 题) / 18 题 answer key / PM_ANCHORS / PM_TRAILS / buildMapNodes / buildMapRelationships / findNodeRelations / Map 相机交互（全图 / 推近 / 回全图）/ 顶栏静态页头契约（v5.68 定的 relative + top:auto，全文零 position:sticky）/ Record Mode / Export(JSON·Markdown·PDF) / Experiment Feedback / 加密备份 / 无障碍语义全部未动。⑦ 观感提示（待用户确认，本版刻意未改）：新句 21 字（含句号）在 max-width:11ch 下约排 4–5 行，旧句 15 字为 3 行；.poster{min-height:320px} 为自适应高度 ⇒ 海报会变高。是否调整 max-width / 字号以收在 3 行内，由用户看过前后截图后决定。
 v5.68 (2026-09-30)：顶栏改回静态页头（基于 v5.67；用户要求：Map Mode / 结果生成页的顶部导航栏不要固定悬浮在页面顶部，改为像普通导航栏一样静态放置，向下滚动浏览内容时随页面向上滚动并移出视野，要用按钮时自行滚回顶部）。① 撤销 v5.66 的吸顶：.topbar 基础规则由 position:sticky / top:14px 改为 position:relative / top:auto；body.on-summary .topbar 删去 position:sticky 与 top（保留背景 / 边框 / 投影 / 背景模糊）；**整个 @media (min-width:901px) 吸顶块删除** —— 它做的四件事全部撤回：.shell 的 padding-top 归零（恢复 20px）、top:0、border-top:0、border-radius:0 0 18px 18px（顶栏恢复完整卡片：四角 18px 圆角 + 上边框）、额外那道向下投影。② @media (max-width:720px) 的 .topbar { top: 8px } 同步改为 top:auto —— position 已是 relative，任何非 auto 的 top 都会产生硬位移。③ .summary-grid 的 scroll-margin-top 由 96px 降到 20px：那 96px 是专为吸顶栏预留的，吸顶取消后「完成 Journey → 定位到罗盘正文」的落点会凭空多出一段空白。④ 语义结果：Welcome / Journey / Summary 三个视图的顶栏现在完全同构 —— 都在文档流内静态放置、都随页面滚动移出视野，不再有任何视图的顶栏常驻视口。⑤ 实测（真浏览器 CDP，5 视口 × 3 视图 × 6 滚动位 = 90 个测量点）：顶栏「文档内位置」(rect.top + scrollY) 极差 **0.00px**（= 静态页头的定义式证明；sticky / fixed 会随滚动线性增长）；scrollY=0 时顶栏 top 桌面 20px / ≤720px 12px 且完整在视口内；滚到页面底部时 rect.bottom <= 0（完全移出视野）；填写总览抽屉开关后 body.overflow 正确还原且结论不变；Map Mode 点地标推近 / 回全图仍为**零页面滚动**。⑥ 影响面严格限定：5 处 CSS 声明 + 2 处滚动落点预留。零结构 / 零字段 / 零数据模型 / 零 state 改动：STATE_VERSION(7) / STORAGE_KEY / STEPS / 18 题 answer key / PM_ANCHORS / PM_TRAILS / buildMapNodes / buildMapRelationships / Map 相机交互 / Record Mode / Export / Experiment Feedback / 加密备份 / 无障碍语义全部未动。
@@ -122,10 +131,10 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
 <head data-page-node-id="fsJHWicoCbU8EXL52OWWk8">
     <meta charset="UTF-8" data-page-node-id="o6k7vl6EEXyy6E8KBVVBbV">
     <meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="l34J60i0HpDC5pX2nzDAP9">
-    <meta name="description" content="内在罗盘 v5.71：以🪐行星意象为线索的自我探索 Journey。Map Mode 信息架构减法保留（L1 地标 → L2 更多线索 → L3 深入阅读 → Record）；静止态即「全图」——整张地图收拢进一屏，默认就能看到大部分 / 全部地标；点击地标只做镜头推近（≈1.06×）并在窗口内平移缩放，「← 全图」、点击空白或双击地标退回全图取景，全程绝不滚动页面。不替你下结论，只帮你看见自己写下的方向。" data-page-node-id="aqbMOwbMCxAwu7dNuKWGFD">
+    <meta name="description" content="内在罗盘 v5.73：以🪐行星意象为线索的自我探索 Journey。Map Mode 信息架构减法保留（L1 地标 → L2 更多线索 → L3 深入阅读 → Record）；静止态即「全图」——整张地图收拢进一屏，默认就能看到大部分 / 全部地标；点击地标只做镜头推近（≈1.06×）并在窗口内平移缩放，「← 全图」、点击空白或双击地标退回全图取景，全程绝不滚动页面。不替你下结论，只帮你看见自己写下的方向。" data-page-node-id="aqbMOwbMCxAwu7dNuKWGFD">
     <meta name="author" content="Leah / 公众号作者@D小调片段记录" data-page-node-id="AmW93bM1S5epwS8betUfsQ">
     <meta name="copyright" content="© 2026 Leah / 公众号作者@D小调片段记录. All rights reserved." data-page-node-id="GWB0buNZa2ESDHYRLlJ0Hg">
-    <meta name="version" content="v5.71" data-page-node-id="RmwIffWpkQilzimONxuS7W">
+    <meta name="version" content="v5.73" data-page-node-id="RmwIffWpkQilzimONxuS7W">
     <!-- 主题色会随亮/暗模式动态更新（见 setTheme） -->
     <meta name="theme-color" id="themeColorMeta" content="#f6f2eb" data-page-node-id="JE1p2dLsrY89y74ph79BPL">
     <link rel="canonical" href="https://magiccoai.github.io/Inner-Compass/" data-page-node-id="UDiTXY7L6TQDFqBW3PR3hk">
@@ -143,15 +152,18 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
             --panel: rgba(255,255,255,.78);
             --panel-strong: #fffdf9;
             --ink: #1f2a24;
-            --ink-soft: #59655d;
-            --ink-faint: #6b756b; /* 提高对比度至 WCAG AA（原 #7e897f） */
+            --ink-soft: #4d5a52;
+            --ink-faint: #5a665e; /* v5.73：WCAG AA 达标 —— #6b756b 对 --bg(#f6f2eb) 仅 4.29:1，现 5.38:1（原 #7e897f） */
             --line: rgba(39, 58, 47, .12);
             --accent: #1f5a45;
             --accent-soft: rgba(31, 90, 69, .10);
             --accent-strong: #174533;
+            /* v5.73：accent 底上的文字色。浅色主题 accent 是深绿 → 白字 7.22:1；
+               深色主题 accent 变亮绿 #77bf9a，白字只有 2.16:1 → 必须换成深墨（7.71:1）。 */
+            --on-accent: #ffffff;
             --accent-warm: #8d6844;
-            --good: #3a7a5f;
-            --warn: #a06b3a;
+            --good: #2f6a51;
+            --warn: #8a5a2c;
             --shadow: 0 16px 48px rgba(24, 31, 27, .08);
             --shadow-soft: 0 10px 28px rgba(24, 31, 27, .05);
             --radius-xl: 28px;
@@ -185,6 +197,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
             --accent: #77bf9a;
             --accent-soft: rgba(119, 191, 154, .13);
             --accent-strong: #9ad8b8;
+            --on-accent: #10201a;
             --accent-warm: #d0a778;
             --good: #8bd1ae;
             --warn: #d8ac73;
@@ -323,7 +336,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
 
         .primary-btn {
             background: var(--accent);
-            color: #fff;
+            color: var(--on-accent);
             border-color: transparent;
             box-shadow: 0 10px 28px rgba(24, 79, 58, .18);
         }
@@ -602,7 +615,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
         .phase-pill.active {
             border-color: transparent;
             background: var(--accent);
-            color: #fff;
+            color: var(--on-accent);
             box-shadow: 0 8px 18px rgba(17, 65, 48, .15);
         }
 
@@ -673,13 +686,13 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
         .journey-back-link {
             display: inline-block; margin: 0 0 14px;
             font: inherit; font-size: 13px; line-height: 1;
-            color: #6b7b8c; text-decoration: none;
+            color: #566a7d; text-decoration: none;
             border: 1px solid rgba(60,60,60,.16); border-radius: 999px; padding: 7px 13px;
             cursor: pointer; background: transparent;
             transition: background .2s ease, color .2s ease, border-color .2s ease;
         }
         .journey-back-link:hover { background: rgba(107,123,140,.08); color: #3a3a3a; }
-        .journey-back-link:focus-visible { outline: 2px solid #6b7b8c; outline-offset: 2px; }
+        .journey-back-link:focus-visible { outline: 2px solid #566a7d; outline-offset: 2px; }
         .journey-arrival-hint {
             display: flex; align-items: flex-start; gap: 12px; margin: 0 0 16px; padding: 12px 14px;
             background: rgba(107,123,140,.08); border: 1px solid rgba(107,123,140,.2); border-radius: 12px;
@@ -765,6 +778,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
         .question-guide {
             margin: 6px 0 0;
             font-size: 14px;
+            font-weight: 500;
             color: var(--ink-soft);
         }
 
@@ -1360,6 +1374,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
 
         .nav-meta {
             font-size: 13px;
+            font-weight: 500;
             color: var(--ink-faint);
         }
 
@@ -1441,7 +1456,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
 
         .mode-btn.active {
             background: var(--accent);
-            color: #fff;
+            color: var(--on-accent);
             box-shadow: 0 6px 18px rgba(31, 90, 69, .18);
         }
 
@@ -1566,7 +1581,6 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
 
         .record-answer-empty {
             color: var(--ink-faint);
-            font-style: italic;
         }
 
         .record-structured {
@@ -1845,6 +1859,14 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
             transition: width .3s ease;
         }
 
+        /* v5.72：填写进度抽屉底部常驻说明 —— 出发前就知道「补充完怎么回地图」 */
+        .progress-drawer-note {
+            margin: 6px 2px 0;
+            font-size: 13px;
+            line-height: 1.7;
+            color: var(--ink-soft);
+        }
+
         .progress-drawer-backdrop {
             position: fixed;
             inset: 0;
@@ -2053,7 +2075,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
         .ai-radio input { flex: 0 0 auto; margin: 3px 0 0; accent-color: var(--accent); }
         .ai-radio-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
         .ai-radio-main { font-size: 13px; font-weight: 500; color: var(--ink-soft); }
-        .ai-radio-sub { font-size: 11.5px; color: var(--ink-faint); }
+        .ai-radio-sub { font-size: 12px; color: var(--ink-faint); }
         .ai-radio:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
         .ai-radio:has(input:checked) .ai-radio-main,
         .ai-radio.is-selected .ai-radio-main { color: var(--ink); font-weight: 600; }
@@ -2840,7 +2862,6 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
             font-size: 12px;
             color: var(--ink-faint);
             letter-spacing: .04em;
-            opacity: .75;
             transition: opacity var(--transition);
         }
         .page-footer:hover {
@@ -3010,7 +3031,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
             padding: 10px 16px;
             border-radius: 999px;
             background: var(--accent);
-            color: #fff;
+            color: var(--on-accent);
             font-size: 14px;
             text-decoration: none;
         }
@@ -3532,14 +3553,14 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
         align-items: center;
         gap: 5px 9px;
         margin: 14px 0 0;
-        font-size: 11px;
+        font-size: 12px;
         letter-spacing: .04em;
         color: var(--ink-faint);
         max-width: none;
     }
     .pm-route-line i {
         font-style: normal;
-        opacity: .5;
+        opacity: .95;
     }
     .pm-route-line span { color: var(--ink-soft); }
     /* 最下方极轻提示：桌面 / 移动各一句，不用长教程 */
@@ -3688,10 +3709,10 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
         display: flex;
         align-items: center;
         gap: 7px;
-        font-size: 9px;
-        letter-spacing: .16em;
+        font-size: 11px;
+        letter-spacing: .1em;
         color: var(--ink-faint);
-        opacity: .72;
+        opacity: 1;
         white-space: nowrap;
         pointer-events: none;
     }
@@ -3860,14 +3881,14 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
         transition: opacity .3s var(--transition);
     }
     /* 内容密度：只改 spacing / 聚拢程度 / 次级内容默认 opacity，不改 Anchor 数量 */
-    .pm-stage[data-density="low"]    { --pm-sat-op: .92; --pm-gap: 1.25; }
-    .pm-stage[data-density="medium"] { --pm-sat-op: .86; --pm-gap: 1; }
-    .pm-stage[data-density="high"]   { --pm-sat-op: .74; --pm-gap: .84; }
+    .pm-stage[data-density="low"]    { --pm-sat-op: 1;   --pm-gap: 1.25; }
+    .pm-stage[data-density="medium"] { --pm-sat-op: .97; --pm-gap: 1; }
+    .pm-stage[data-density="high"]   { --pm-sat-op: .94; --pm-gap: .84; }
     /* v5.47：注意力模型从 .pm-anchor-inner 上移到 .pm-anchor —— 一次乘法而不是两次，
        状态更可预测、更容易断言；inner 只做隔离层，不再承担注意力。
        --rest 仍然只表达「语义深度 → 静息可读性下限」，不是「接近隐藏」。 */
     .pm-anchor {
-        opacity: var(--rest, .92);
+        opacity: var(--rest, .96);
         transition: opacity .32s var(--transition);
     }
     .pm-anchor-inner {
@@ -3903,14 +3924,14 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
     /* v5.46：移除 .pm-anchor-inner::before 的 soft glow——anchor 转为地图注记，
        不再有卡片式光晕；场域注意力由 .pm-field-attention 统一承担。 */
     /* 语义深度 → 静息注意力 + 视差系数。--rest 是下限，不是「接近隐藏」 */
-    .pm-anchor[data-depth="far"]  { --rest: .88; }
-    .pm-anchor[data-depth="mid"]  { --rest: .92; }
-    .pm-anchor[data-depth="near"] { --rest: .96; }
+    .pm-anchor[data-depth="far"]  { --rest: .96; }
+    .pm-anchor[data-depth="mid"]  { --rest: .97; }
+    .pm-anchor[data-depth="near"] { --rest: .98; }
     .pm-anchor[data-depth="path"] { --rest: 1; }
     /* v5.44：层次保留，但把下限抬一点——六个站点属于同一张地图，
        次级地标不该在静息时弱到像装饰。 */
-    .pm-anchor[data-tier="secondary"] { --rest: .88; }
-    .pm-anchor[data-pm-live="0"] { --rest: .78; }
+    .pm-anchor[data-tier="secondary"] { --rest: .96; }
+    .pm-anchor[data-pm-live="0"] { --rest: .96; }
 
     /* v5.46：Desktop Anchor 不再是「站点」也不是「卡片」，而是嵌入流场的地图注记。
        位置由 .pm-stage 文档流里的 margin 交错决定、宽度由 max-width 决定、高度完全由内容决定，
@@ -4015,9 +4036,9 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
         align-items: center;
         gap: 7px;
         margin: 0 0 5px;
-        font-size: 11px;
+        font-size: 12px;
         font-weight: 600;
-        letter-spacing: .14em;
+        letter-spacing: .04em;
         color: var(--ink-faint);
         white-space: nowrap;
     }
@@ -4073,6 +4094,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
     .pm-summary {
         margin: 0 0 7px;
         font-size: 14px;
+        font-weight: 500;
         line-height: 1.52;
         color: var(--ink-soft);
         overflow-wrap: anywhere;
@@ -4085,7 +4107,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
     .pm-summary.is-vision {
         font-size: 17px;
         line-height: 1.88;
-        font-weight: 450;
+        font-weight: 500;
         color: var(--ink);
         margin: 16px 0 14px;
         padding: 10px 0 12px 18px;
@@ -4162,7 +4184,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
         border-radius: 7px;
         padding: 3px 9px;
         cursor: pointer;
-        opacity: var(--pm-sat-op, .88);
+        opacity: var(--pm-sat-op, 1);
         transition: border-color var(--transition), color var(--transition), background var(--transition), box-shadow var(--transition), opacity var(--transition);
     }
     .pm-stage[data-density="high"] .pm-sat { font-size: 13px; padding: 2px 8px; }
@@ -4237,7 +4259,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
         display: inline-block;
         margin: 2px 0 6px;
         font: inherit;
-        font-size: 11px;
+        font-size: 12px;
         letter-spacing: .02em;
         color: var(--accent);
         background: none;
@@ -4253,7 +4275,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
         align-items: center;
         gap: 6px;
         font: inherit;
-        font-size: 11.5px;
+        font-size: 12.5px;
         letter-spacing: .02em;
         color: var(--accent);
         background: none;
@@ -4265,7 +4287,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
     .pm-read:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
     .pm-jump {
         font: inherit;
-        font-size: 11px;
+        font-size: 12px;
         letter-spacing: .04em;
         color: var(--accent);
         background: transparent;
@@ -4381,7 +4403,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
     .fn-item-open[data-type="avoid"] .fn-dot { background: var(--warn); border-radius: 1px; }
     .fn-item-open[data-type="experiment"] .fn-dot { background: transparent; border: 1.5px solid var(--good); }
     .fn-item-open[data-type="stock"] .fn-dot { background: var(--accent-warm); border-radius: 1px; }
-    .fn-item-text { margin: 0; font-size: 13px; line-height: 1.75; color: var(--ink-soft); white-space: pre-wrap; overflow-wrap: anywhere; }
+    .fn-item-text { margin: 0; font-size: 13px; font-weight: 500; line-height: 1.75; color: var(--ink-soft); white-space: pre-wrap; overflow-wrap: anywhere; }
     .fn-item-text.is-empty { color: var(--ink-faint); }
     .fn-item-text.is-empty em { font-style: normal; }
     .fn-static { margin: 0; font-size: 13.5px; line-height: 1.75; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -4413,8 +4435,8 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
        Step B 相关地标提升（130ms）
        Step C 真实 PM_TRAILS route reveal（.pm-trail.is-revealing，.26s 起）
        顺序由 transition-delay / animation-delay 建立，不引入任何 JS 定时器。 */
-    .pm-stage.is-focused .pm-anchor { opacity: .58; transition-delay: 0ms; }
-    .pm-stage.is-focused .pm-anchor.is-related { opacity: .85; transition-delay: 130ms; }
+    .pm-stage.is-focused .pm-anchor { opacity: .96; transition-delay: 0ms; }
+    .pm-stage.is-focused .pm-anchor.is-related { opacity: .98; transition-delay: 130ms; }
     .pm-stage.is-focused .pm-anchor.is-focus { opacity: 1; transition-delay: 0ms; }
     /* v5.30.3：键盘 focus 落入被 dim 的地标时自动提升到 1（opacity 不是唯一状态） */
     .pm-stage.is-focused .pm-anchor:focus-within { opacity: 1; transition-delay: 0ms; }
@@ -4430,7 +4452,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
         margin: 0 auto;
         padding: 14px clamp(18px, 4vw, 54px) 4px;
         border-top: 1px solid var(--pm-line);
-        font-size: 11.5px;
+        font-size: 12.5px;
         line-height: 1.7;
         color: var(--ink-faint);
     }
@@ -4442,8 +4464,8 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
     }
     .pm-footnav-stop {
         font: inherit;
-        font-size: 10.5px;
-        letter-spacing: .08em;
+        font-size: 12px;
+        letter-spacing: .04em;
         color: var(--ink-faint);
         background: none;
         border: 1px solid var(--pm-hair);
@@ -4459,7 +4481,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
         max-width: 1180px;
         margin: 0 auto;
         padding: 4px clamp(18px, 4vw, 54px) clamp(28px, 4vw, 52px);
-        font-size: 11.5px;
+        font-size: 12.5px;
         line-height: 1.7;
         color: var(--ink-faint);
     }
@@ -4499,12 +4521,12 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
             animation: none !important;
         }
         .pm-title { font-size: 20px !important; }
-        .pm-eyebrow { font-size: 12px; }
+        .pm-eyebrow { font-size: 12.5px; }
         .pm-summary { font-size: 15.5px; line-height: 1.62; }
         /* v5.30.5：移动端 vision 进一步收起——4 行高度 + mask，避免遮挡下方 anchor */
         .pm-summary.is-vision { font-size: 17px; line-height: 1.78; padding: 8px 0 8px 8px; margin: 6px 0 6px; max-height: 4.2em; -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 76%, transparent 100%); mask-image: linear-gradient(180deg, #000 0%, #000 76%, transparent 100%); }
         .pm-vision-toggle { padding: 3px 9px; margin-left: 14px; }
-        .pm-sat { font-size: 14px; opacity: .96; }
+        .pm-sat { font-size: 14px; opacity: 1; }
         .pm-anchor[data-anchor="values"] .pm-sat { font-size: 15.5px; }
         /* v5.42：Mobile 纵向场无重叠风险，保留原有就地展开 */
         .pm-trail-note {
@@ -4512,10 +4534,10 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
             flex-wrap: wrap;
             gap: 4px 10px;
             margin: 10px 0 0;
-            font-size: 11px;
+            font-size: 12px;
             color: var(--ink-faint);
             /* v5.47：路径注记默认轻一点，当前 / 相邻地标时完整显现 */
-            opacity: .48;
+            opacity: .72;
             transition: opacity .45s var(--transition);
         }
         .pm-trail-note-item { display: inline-flex; align-items: baseline; gap: 5px; }
@@ -4533,9 +4555,9 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
            当前地标 1 / 上下相邻 .90 / 其余 .88 —— 从不低于 .88，纵向阅读永远可读。
            没有横向 pan、没有 drag-to-pan、没有 desktop pointer parallax，
            也没有任何自动播放的动画：只是「我正在沿着自己的地图向前走」。 */
-        .pm-anchor { opacity: .88; }
+        .pm-anchor { opacity: .96; }
         .pm-anchor.is-near { opacity: 1; }
-        .pm-anchor.is-adjacent { opacity: .90; }
+        .pm-anchor.is-adjacent { opacity: .98; }
         /* marker 激活：语义点在当前地标处轻微放大（不是发光、不是跳动） */
         .pm-anchor.is-near .pm-depth-dot { transform: scale(1.35); }
         /* related route 轻微显现：路径注记随当前 / 相邻地标亮起，不做位移 */
@@ -4543,8 +4565,8 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
         .pm-anchor.is-adjacent .pm-trail-note { opacity: 1; }
         /* 移动端的「当前地标」由滚动位置决定，不复用 desktop focus 的压暗叙事
            （否则点击一次地标会让整页变暗，破坏纵向阅读）。 */
-        .pm-stage.is-focused .pm-anchor { opacity: .88; }
-        .pm-stage.is-focused .pm-anchor.is-adjacent { opacity: .90; }
+        .pm-stage.is-focused .pm-anchor { opacity: .96; }
+        .pm-stage.is-focused .pm-anchor.is-adjacent { opacity: .98; }
         .pm-stage.is-focused .pm-anchor.is-near,
         .pm-stage.is-focused .pm-anchor.is-focus { opacity: 1; }
     }
@@ -4611,13 +4633,13 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
         .pm-trail-end.is-active { opacity: .72; }
         .pm-trail-label.is-active { opacity: .85; }
         /* 语义状态保留（与上面同值，显式写出以便审计） */
-        .pm-anchor { opacity: var(--rest, .92); }
+        .pm-anchor { opacity: var(--rest, .96); }
         .pm-stage.is-exploring .pm-anchor { opacity: .86; }
         .pm-stage.is-exploring .pm-anchor.is-att-mid { opacity: .90; }
         .pm-stage.is-exploring .pm-anchor.is-att-near { opacity: 1; }
         .pm-anchor.is-hovered, .pm-anchor:focus-within, .pm-anchor.is-focus { opacity: 1; }
-        .pm-stage.is-focused .pm-anchor { opacity: .58; }
-        .pm-stage.is-focused .pm-anchor.is-related { opacity: .85; }
+        .pm-stage.is-focused .pm-anchor { opacity: .96; }
+        .pm-stage.is-focused .pm-anchor.is-related { opacity: .98; }
         .pm-stage.is-focused .pm-anchor.is-focus { opacity: 1; }
         .pm-stage.is-focused .pm-anchor:focus-within { opacity: 1; }
         .pm-anchor.is-focus::before { opacity: 1; transform: scale(1.18); }
@@ -5184,6 +5206,11 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
         const state = {
             started: false,
             showSummary: false,
+            /* v5.72：是否处于「从罗盘（方向地图 / 完整记录）出来补充内容」的状态。
+               true 时填写视图顶部常驻「← 我的罗盘」返回入口（见 renderJourney）。
+               纯导航状态、可选字段：旧存档没有这个 key → 默认 false，无需迁移，
+               STATE_VERSION 维持 7。 */
+            compassReturn: false,
             stepIndex: 0,
             theme: null, // null 表示尚未手动选择，初始化时读取系统偏好（第 10 项）
             answers: {},
@@ -5226,9 +5253,52 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
         /* v5.19：Compass 视图纯 UI state，不写 localStorage */
         let currentCompassView = "map";
         let _pendingJourneyHint = false;
-        /* Camera Map Experiment：本次 Journey 是否从 Map「去这一题」进入。
-           纯页面生命周期 transient flag，不写 localStorage；离开 Map 后即清除。 */
-        let _journeyReturnFromMap = false;
+        /* v5.72：离开罗盘时记住当时所在的罗盘视图（map / record），
+           从填写视图返回时按它还原 —— 从「完整记录」出去就回到「完整记录」。
+           纯 UI 状态，不写 localStorage。 */
+        let _compassReturnView = "map";
+
+        /* v5.72：从罗盘进入填写视图时打标记。persist 到 localStorage，
+           所以「补充到一半关掉页面、下次再进来」仍然看得到返回入口。 */
+        function _icMarkCompassReturn() {
+            state.compassReturn = true;
+            _compassReturnView = currentCompassView || "map";
+        }
+
+        /* v5.72：清掉填写视图里已失效的「← 我的罗盘」节点。
+           填写视图是隐藏的 journeyView，回到罗盘 / 完成本轮时不会自动重绘它，
+           不显式移除就会留下一个不会再被触发的陈旧入口（下次 renderJourney 按新状态重建）。 */
+        function _icClearJourneyBackLink() {
+            const b = document.getElementById("journeyBackToMap");
+            if (b && b.parentNode) b.parentNode.removeChild(b);
+        }
+
+        /* v5.72：统一的「回到罗盘」动作 —— 清标记 → 回罗盘 → 还原离开时的视图
+           → 同步 mode-btn 选中态 → 焦点落到罗盘标题 → 播报。
+           所有返回入口（填写视图顶部「← 我的罗盘」、Welcome CTA）共用它。 */
+        function returnToCompass() {
+            state.compassReturn = false;
+            state.showSummary = true;
+            _compassReturnView = _compassReturnView || "map";
+            currentCompassView = _compassReturnView;
+            saveState();
+            renderSummary();
+            switchView("summary");
+            document.querySelectorAll(".mode-btn").forEach(function (b) {
+                const on = b.dataset.mode === currentCompassView;
+                b.classList.toggle("active", on);
+                b.setAttribute("aria-pressed", String(on));
+            });
+            window.scrollTo({ top: 0, behavior: "smooth" });
+            /* 清掉填写视图里可能残留的返回入口节点（见 _icClearJourneyBackLink） */
+            _icClearJourneyBackLink();
+            requestAnimationFrame(function () {
+                const t = document.getElementById("compassPageTitle");
+                if (!t) return;
+                try { t.focus({ preventScroll: true }); } catch (_) { t.focus(); }
+            });
+            announce("已回到我的罗盘。");
+        }
         function _icArrivalHintDone() { try { return localStorage.getItem('ic_arrival_hint_done') === '1'; } catch (e) { return false; } }
         function _icArrivalHintMark() { try { localStorage.setItem('ic_arrival_hint_done', '1'); } catch (e) {} }
 
@@ -5598,7 +5668,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
             }
 
             els.stepCard.innerHTML = `
-                ${_journeyReturnFromMap ? `<a class='journey-back-link' href='#' id="journeyBackToMap" aria-label='回到我的方向地图'>← 我的罗盘</a>` : ``}
+                ${state.compassReturn ? `<a class='journey-back-link' href='#' id="journeyBackToMap" aria-label='回到我的罗盘'>← 我的罗盘</a>` : ``}
                 ${_pendingJourneyHint && !_icArrivalHintDone() ? `
                 <div class='journey-arrival-hint' id="journeyArrivalHint" role='status'>
                     <p>你从「方向地图」点进来了。写完这一题，随时可以回到地图看它长出来；或继续往下走。</p>
@@ -5617,7 +5687,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
                     <p>${escapeHtml(generateStepFeedback(step.id))}</p>
                 </div>
                 <div class="nav-row">
-                    <div class="nav-meta">${completion > 0 ? "这一阶段已经开始形成线索" : "这一阶段允许留空，稍后回来再答"}<br><span style="font-size:11px;opacity:.65">提示：Ctrl+←/→ 可快速切换步骤</span></div>
+                    <div class="nav-meta">${completion > 0 ? "这一阶段已经开始形成线索" : "这一阶段允许留空，稍后回来再答"}<br><span style="font-size:12px">提示：Ctrl+←/→ 可快速切换步骤</span></div>
                     <div style="display:flex;gap:10px;flex-wrap:wrap;">
                         ${state.stepIndex > 0 ? `<button type="button" class="ghost-btn" id="prevStepBtn">上一段</button>` : ``}
                         ${state.stepIndex < STEPS.length - 1 ? `<button type="button" class="primary-btn" id="nextStepBtn">继续前进</button>` : `<button type="button" class="primary-btn" id="finishJourneyBtn">生成我的 Compass</button>`}
@@ -5628,26 +5698,12 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
 
             bindQuestionEvents(step);
 
-            /* Camera Map Experiment：填写视图常驻「回到我的罗盘」+ 一次性到达提示 */
+            /* v5.72：填写视图常驻「← 我的罗盘」（返回动作统一走 returnToCompass）+ 一次性到达提示 */
             const _jb = document.getElementById('journeyBackToMap');
             if (_jb) {
                 const _goMap = function (e) {
                     if (e) e.preventDefault();
-                    _journeyReturnFromMap = false;
-                    state.showSummary = true;
-                    currentCompassView = 'map';
-                    saveState();
-                    renderSummary();
-                    switchView('summary');
-                    document.querySelectorAll('.mode-btn').forEach(function (b) {
-                        const on = b.dataset.mode === currentCompassView;
-                        b.classList.toggle('active', on);
-                        b.setAttribute('aria-pressed', String(on));
-                    });
-                    requestAnimationFrame(function () {
-                        const t = document.getElementById('compassPageTitle');
-                        if (t) { try { t.focus({ preventScroll: true }); } catch (_) { t.focus(); } }
-                    });
+                    returnToCompass();
                 };
                 _jb.addEventListener('click', _goMap);
                 _jb.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') _goMap(e); });
@@ -5686,7 +5742,9 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
 
             if (finish) finish.addEventListener("click", () => {
                 state.started = true;
-                _journeyReturnFromMap = false;
+                /* v5.72：走完这一轮 = 人已经在罗盘上，不再需要返回入口 */
+                state.compassReturn = false;
+                _icClearJourneyBackLink();
                 state.showSummary = true;
                 saveState();
                 renderSummary();
@@ -7968,19 +8026,26 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
             if (expand) { toggleRecordExpand(expand); return; }
 
             const emptyBack = closest("#emptyMapBackBtn");
-            if (emptyBack) { state.showSummary = false; saveState(true); refresh(); return; }
+            /* v5.72：空地图时还没有罗盘可回，清掉返回标记（避免从别处带回的残留） */
+            if (emptyBack) { state.showSummary = false; state.compassReturn = false; saveState(true); refresh(); return; }
 
             const jumpKey = closest("[data-jump-key]");
-            if (jumpKey) { e.preventDefault(); _pendingJourneyHint = true; _journeyReturnFromMap = true; jumpToQuestion(jumpKey.dataset.jumpKey); return; }
+            /* v5.72：置位交给 jumpToQuestion 统一处理（见下），这里只管一次性到达提示 */
+            if (jumpKey) { e.preventDefault(); _pendingJourneyHint = true; jumpToQuestion(jumpKey.dataset.jumpKey); return; }
 
             const jump = closest(".progress-jump-btn");
             if (jump) {
                 const idx = Number(jump.dataset.stepIndex);
                 state.stepIndex = Math.min(Math.max(idx, 0), STEPS.length - 1);
                 state.showSummary = false;
+                /* v5.72：填写进度抽屉只在罗盘视图打开 —— 从这里进填写页一定是
+                   「补充完还要回来看地图」，必须打开返回入口。 */
+                _icMarkCompassReturn();
                 saveState(true);
                 refresh();
                 closeProgressDrawer();
+                /* 返回入口在填写区顶部：滚到顶部才看得到 */
+                window.scrollTo({ top: 0, behavior: "smooth" });
                 return;
             }
         }
@@ -8011,8 +8076,11 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
             if (idx < 0) return;
             state.stepIndex = idx;
             state.showSummary = false;
+            /* v5.72：跳到某一题去补充 = 从罗盘出发的往返，打开「← 我的罗盘」 */
+            _icMarkCompassReturn();
             saveState(true);
             refresh();
+            window.scrollTo({ top: 0, behavior: "smooth" });
         }
 
         /* ---------- Feedback Card / Detail Panel（复用既有 compassDetailPanel）---------- */
@@ -8338,12 +8406,14 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
                         <small>${escapeHtml(step.intro)}</small>
                         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
                             <span style="font-size:13px;color:var(--ink-soft);">${status} · ${answeredCount}/${step.questions.length}</span>
-                            ${completion < 1 ? `<button type="button" class="chip-btn progress-jump-btn" data-step-index="${STEPS.indexOf(step)}">继续填写</button>` : ""}
+                            ${`<button type="button" class="chip-btn progress-jump-btn" data-step-index="${STEPS.indexOf(step)}">${completion >= 1 ? "回看 / 修改" : "继续填写"}</button>`}
                         </div>
                         <div class="progress-step-bar"><div class="progress-step-fill" style="width:${Math.round(completion * 100)}%"></div></div>
                     </div>
                 `;
-            }).join("");
+            }).join("") + `
+                <p class="progress-drawer-note">改完这一题后，点填写区上方的「← 我的罗盘」，就能回到地图看它长出来。</p>
+            `;
             // 注：.progress-jump-btn 的点击由 bindCompassEvents 的 document 级委托统一处理，此处不再重复绑定
         }
 
@@ -8562,7 +8632,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
         function updateWelcomeCta() {
             const btn = document.getElementById("startJourneyBtn");
             if (!btn) return;
-            if (state.started && state.showSummary) {
+            if (state.started && (state.showSummary || state.compassReturn)) {
                 btn.textContent = "回到我的罗盘";
             } else if (state.started) {
                 btn.textContent = "回到 Journey";
@@ -8885,8 +8955,8 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
                 .rp-text { margin: 0; font-weight: 400; color: #3a463d; line-height: 2; white-space: pre-wrap; }
                 .rp-list { margin: 4px 0 0; padding-left: 20px; }
                 .rp-list li { margin: 7px 0; font-weight: 400; color: #3a463d; line-height: 1.9; }
-                .rp-empty { margin: 0; font-weight: 400; font-style: italic; color: #9aa39c; }
-                .rp-foot { margin-top: 26px; padding-top: 12px; border-top: 1px solid #e6e0d4; font-size: 9.5pt; color: #9aa39c; }
+                .rp-empty { margin: 0; font-weight: 400; color: #5a665e; }
+                .rp-foot { margin-top: 26px; padding-top: 12px; border-top: 1px solid #e6e0d4; font-size: 10pt; color: #5a665e; }
             </style></head><body>
                 <header class="rp-head">
                     <h1>内在罗盘 · 我的完整记录</h1>
@@ -9305,6 +9375,9 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
             document.getElementById("startJourneyBtn").addEventListener("click", () => {
                 // 回访用户从 Welcome 页按 CTA：回到原来所在视图（不重新开始、不丢数据）
                 if (state.started) {
+                    /* v5.72：文案已是「回到我的罗盘」时，就真的回罗盘，
+                       否则 refresh() 只会把人送回填写页（第二个死角）。 */
+                    if (state.compassReturn) { returnToCompass(); return; }
                     saveState();
                     refresh();
                     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -9414,6 +9487,8 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
             });
             document.getElementById("backToJourneyBtn")?.addEventListener("click", () => {
                 state.showSummary = false;
+                /* v5.72：从罗盘页头回到 Journey 也是往返 —— 返回入口要跟着过去 */
+                _icMarkCompassReturn();
                 // 如果当前位置无可回溯内容，跳到第一个有未完成问题或已留下线索的阶段
                 const currentCompletion = getStepCompletion(STEPS[state.stepIndex]);
                 if (state.stepIndex === 0 && currentCompletion === 0) {
@@ -11425,7 +11500,7 @@ Inner Compass 不是替填写者找到职业答案，而是让一个模糊的「
         document.addEventListener("DOMContentLoaded", init);
     </script>
     <footer class="page-footer" data-page-node-id="qI2TjVVR1ceVWvmJrsPltG">
-        <div data-page-node-id="gkdLI0X0LOfXzFfvDxNvjm">Created by Leah / 公众号<a href="https://mp.weixin.qq.com" target="_blank" rel="noopener" data-page-node-id="IHLdmqOo5L9rHtBJnIuMQ1">@D小调片段记录</a> · Self Discovery Framework v5.71</div>
+        <div data-page-node-id="gkdLI0X0LOfXzFfvDxNvjm">Created by Leah / 公众号<a href="https://mp.weixin.qq.com" target="_blank" rel="noopener" data-page-node-id="IHLdmqOo5L9rHtBJnIuMQ1">@D小调片段记录</a> · Self Discovery Framework v5.73</div>
         <div data-page-node-id="BTqcCM7Bu1caEvWSHLrHS3">所有数据仅保存在当前设备，不会上传至服务器。如在公共设备上使用，请勿留存私人记录。</div>
     </footer>
 </body>
