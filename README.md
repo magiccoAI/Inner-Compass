@@ -79,6 +79,20 @@ Inner Compass 最开始并不是从「做一个问卷」开始的。
 
 这个仓库保存的是它继续迭代之后的公开版本。
 
+如果想知道这些问题、这张地图，是怎么一步步长成现在这样的，可以看这份构建过程记录：
+
+> **[Inner Compass｜构建过程阶段记录](./INNER_COMPASS_BUILD_LOG.md)**
+
+它记的不是版本更新日志，而是一条**设计问题不断被重新定义**的过程线：
+
+从一个太大的问题开始，把它拆成可以回答的问题；
+从「一份问卷」转向「一个个人罗盘」；
+从结果页走向 Map Mode 的地图语言；
+再把理想生活真正连接到工作、把现实放回坐标里、把「想清楚」改成「继续了解」，
+最后让 AI 只作为一个可选的外部阅读出口。
+
+而每个版本具体改了什么，则逐条记在 `CHANGELOG.md`。
+
 ---
 
 ## 它不负责替你探索
@@ -640,6 +654,15 @@ Inner Compass 已经经历了多轮：
 这份 Compass 不是要替你把人生定下来。
 
 它只是帮你把已经出现的线索，好好留下来。
+
+---
+
+# 延伸阅读
+
+- **[Inner Compass｜构建过程阶段记录](./INNER_COMPASS_BUILD_LOG.md)** —— 这个项目是怎么一步步长成现在这样的
+- `CHANGELOG.md` —— 每个版本改了什么
+- [在线使用](https://magiccoai.github.io/Inner-Compass/)
+- [下载到自己的设备](https://magiccoai.github.io/Inner-Compass/download.html)
 
 ---
 
