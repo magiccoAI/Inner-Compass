@@ -3,8 +3,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="version" content="v5.73">
-    <meta name="description" content="下载 Inner Compass（内在罗盘）——一份 reflection-first 的自我探索工具，无需安装，用浏览器打开即可使用，数据只保存在你的设备。">
+    <meta name="version" content="v5.76">
+    <meta name="description" content="Inner Compass（内在罗盘）使用入口——手机可直接在线体验，电脑可下载后慢慢书写；回答由当前设备与浏览器保存，不会上传。">
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%F0%9F%AA%90%3C/text%3E%3C/svg%3E">
     <title>下载 Inner Compass · 内在罗盘</title>
     <style>
@@ -43,7 +43,7 @@
         }
 
         .card {
-            width: min(560px, 100%);
+            width: min(680px, 100%);
             background: var(--panel);
             border: 1px solid var(--line);
             border-radius: var(--radius-lg);
@@ -86,29 +86,42 @@
             max-width: 42ch;
         }
 
-        .points {
+        .guide {
             text-align: left;
-            margin: 0 auto 26px;
-            max-width: 42ch;
-            padding: 0;
-            list-style: none;
-            display: grid;
-            gap: 10px;
+            margin: 0 auto 24px;
+            max-width: 54ch;
+            border-top: 1px solid var(--line);
+            border-bottom: 1px solid var(--line);
         }
 
-        .points li {
-            display: flex;
-            gap: 10px;
-            color: var(--ink-soft);
-            font-size: 14px;
-            line-height: 1.6;
-        }
+        .guide-section { padding: 11px 0 12px; }
+        .guide-section + .guide-section { border-top: 1px solid var(--line); }
 
-        .points li::before {
-            content: "·";
+        .guide h2 {
+            margin: 0 0 4px;
             color: var(--accent);
-            font-weight: 800;
-            flex: none;
+            font-size: 13px;
+            line-height: 1.5;
+            letter-spacing: .04em;
+        }
+
+        .guide p {
+            margin: 0;
+            color: var(--ink-soft);
+            font-size: 13.5px;
+            line-height: 1.65;
+        }
+
+        .guide p + p { margin-top: 5px; }
+        .guide strong { color: var(--ink); font-weight: 600; }
+
+        .action-title {
+            margin: 0 0 14px;
+            color: var(--accent);
+            font-size: 13px;
+            font-weight: 600;
+            line-height: 1.5;
+            letter-spacing: .04em;
         }
 
         .actions {
@@ -151,10 +164,17 @@
         .ghost-btn:hover { border-color: var(--accent); color: var(--accent); }
 
         .note {
-            margin: 24px auto 0;
+            margin: 18px auto 0;
             font-size: 12.5px;
             color: var(--ink-faint);
-            max-width: 44ch;
+            max-width: 48ch;
+        }
+
+        .version-note {
+            margin: 9px 0 0;
+            color: var(--ink-faint);
+            font-size: 12px;
+            letter-spacing: .03em;
         }
 
         .status {
@@ -205,6 +225,15 @@
 
         #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+        @media (max-width: 520px), (max-height: 1000px) {
+            body { align-items: flex-start; }
+        }
+
+        @media (max-width: 520px) {
+            body { padding: 16px; }
+            .card { padding: 26px 22px; }
+        }
+
         @media (prefers-color-scheme: dark) {
             :root {
                 --bg: #111714;
@@ -234,20 +263,33 @@
     <main class="card">
         <div class="mark" aria-hidden="true">🪐</div>
         <p class="eyebrow">Inner Compass · 内在罗盘</p>
-        <h1>慢慢整理自己的生活线索，看见自己的当前坐标。</h1>
-        <p class="lead">一份 reflection-first 的自我探索工具。下载后无需安装，用浏览器打开就能用。</p>
-        <ul class="points">
-            <li>无需安装：下载得到的是一个 HTML 文件，双击用浏览器打开即可开始。</li>
-            <li>数据只保存在你当前的设备与浏览器里，不会上传到任何服务器。</li>
-            <li>随时回来继续：你写下的内容都留在这台设备上，下次打开还在。</li>
-        </ul>
+        <h1>慢慢整理自己的生活线索，留下一份属于自己的当前坐标。</h1>
+        <p class="lead">一份有结构的书写空间，无需安装，打开即可使用。</p>
+        <div class="guide" aria-label="使用说明">
+            <section class="guide-section" aria-labelledby="chooseTitle">
+                <h2 id="chooseTitle">怎么选</h2>
+                <p><strong>想完整坐下来写一轮：</strong>推荐下载到电脑使用，屏幕和键盘更适合较长时间的书写。</p>
+                <p><strong>只是想先试试看：</strong>直接在线打开即可，手机也可以使用，不需要下载。</p>
+            </section>
+            <section class="guide-section" aria-labelledby="saveTitle">
+                <h2 id="saveTitle">关于保存</h2>
+                <p>你的回答会自动保存在<strong>当前设备和浏览器</strong>中，不会上传到服务器。换设备或换浏览器后，之前的回答不会自动出现。</p>
+                <p>已经写下比较重要的内容，可以在 Inner Compass 中<strong>备份当前回答</strong>。之后更换设备或浏览器时，都可以再导入这份备份。</p>
+            </section>
+            <section class="guide-section" aria-labelledby="versionTitle">
+                <h2 id="versionTitle">在线版与下载版</h2>
+                <p>在线打开的是网页，下载到设备里的是一份独立文件，两种方式的填写记录不会自动同步。</p>
+            </section>
+        </div>
+        <h2 class="action-title">下载 Inner Compass</h2>
         <div class="actions">
-            <button class="primary-btn" id="downloadBtn" type="button">下载 Inner Compass</button>
-            <a class="ghost-btn" href="index.html" target="_blank" rel="noopener">在线打开</a>
+            <button class="primary-btn" id="downloadBtn" type="button">下载到设备</button>
+            <a class="ghost-btn" id="onlineLink" href="index.html" target="_blank" rel="noopener">在线打开</a>
         </div>
         <p class="status" id="status" hidden></p>
         <a class="ghost-btn" id="saveLink" href="index.html" download="Inner Compass.html" hidden style="margin: 4px auto 0;">尝试另存为文件</a>
-        <p class="note">「下载 Inner Compass」会把一份空白的 Inner Compass 保存到你的设备；它与你在浏览器里已经填写的内容互不影响。</p>
+        <p class="note">下载到设备的是一份空白文件，在线版中已经填写的内容不会随文件一起下载。</p>
+        <p class="version-note">当前下载版本 · v5.76</p>
     </main>
 
     <div class="sr-only" id="liveRegion" aria-live="polite"></div>
@@ -285,7 +327,11 @@
             }
 
             var btn = document.getElementById("downloadBtn");
+            var onlineLink = document.getElementById("onlineLink");
             var isFileProtocol = location.protocol === "file:";
+            if (isFileProtocol && onlineLink) {
+                onlineLink.href = "https://magiccoai.github.io/Inner-Compass/";
+            }
 
             // 本地双击（file://）打开时，浏览器会禁止 fetch 读取同文件夹文件，
             // 因此无法自动触发下载。这里给出明确说明，并露出一条浏览器原生的

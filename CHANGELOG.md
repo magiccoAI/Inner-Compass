@@ -1,6 +1,102 @@
 # Inner Compass（内在罗盘）变更记录
 
-## v5.73（2026-10-04）— 全站文字对比度 / 可读性修补（WCAG 2.1 AA）【当前活动基】
+## v5.76（2026-10-04）— 备份 / 导入的命名与说明修补【当前活动基】
+
+**目标**：让两个入口的名字直接说清「做什么」，并让文案严格等于代码真实能力 —— 不因为句子要完整就声称 Markdown 可以导入。
+
+### 修改前核验（以实际代码为准）
+- `importState()` 只做 `JSON.parse`；`<input id="importFile" accept=".json,application/json">`。
+- ⇒ 真正可导入的只有两类文件：① 加密备份文件（`encrypted === true` 走密码解密）② `exportJSON()` 产出的 `.json`。
+- `exportMarkdown()` 产出的是给人读的报告（`## Compass Summary` / `## Journey 记录`），**没有反向解析器**。
+- ⇒ 本轮**不新增** Markdown 导入，`accept` 保持 `.json,application/json`，任何位置都不把 Markdown 写成可恢复来源。
+
+### 改动
+1. **更多菜单命名**：分组标签 `回答备份` → `我的回答`（避免与下一行 `备份当前回答` 重复「备份」）；`保存回答备份` → `备份当前回答`；`恢复回答备份` → `导入回答数据`。
+2. **新增一句短说明**：导入项下方新增 `.more-item-hint`「支持加密备份文件与导出的 JSON 数据」；并给导入项加 `aria-label="导入回答数据：支持加密备份文件与导出的 JSON 数据"`（以可见文字开头，满足 WCAG 2.5.3），提示行本身 `aria-hidden="true"`。
+3. **删除全部「下载新版」暗示**：静态说明「…或者重新下载了新版，都可以用这份文件把你的回答恢复回来。」→「以后换设备或换浏览器，都可以用这份文件把回答导入回来。」；备份描述「…在新版 Inner Compass 里恢复回来。」→「…之后再导入回来。」；`download.html`「更换设备、浏览器，或者重新下载文件时」→「更换设备或浏览器时」。
+4. **连带同步**：弹窗标题（`备份当前回答` / `导入回答数据`）、总结页快捷按钮、页脚保存边界句、Welcome `hero-hint`（→「也可以随时备份一份自己的回答」）、两条自动保存失败 Toast、导入失败 Toast（→「请选择加密备份文件或导出的 JSON 数据」）、备份成功 Toast / announce；导出态静态 HTML 与 JS 分支两处副本逐字保持一致。
+5. **eyebrow**：`Backup` → `Backup &amp; Import`（同一弹窗服务两个入口）。
+6. **新增 CSS**：`.more-item-hint`（`display:block` / `padding:0 14px 8px` / `font-size:12px` / `line-height:1.5` / `color:var(--ink-faint)` / 允许折行）——用色阶不用 opacity，浅色 5.9:1、深色 5.4:1，均达 WCAG AA；中文 12px 满足项目「中文不得 <12px」。
+7. **顺带修正既有漏改**：页脚 `Self Discovery Framework v5.74` → `v5.76`（v5.75 只升了 meta 与文件头，漏了页脚）。
+
+### 明确没有修改
+`STATE_VERSION(7)` / `STORAGE_KEY` / `STEPS(7 阶段 18 题)` / answer keys / `IMPORT_WHITELIST` / `PM_ANCHORS` / `PM_TRAILS` / Map 与 Record / 问卷内容 / 数据结构 / 自动保存逻辑 / 加密实现（PBKDF2 150000 + AES-GCM）/ `exportJSON`·`exportMarkdown`·`exportReportPDF` / 所有 `data-action` 与事件绑定 / `#importFile` 的 `accept` / `file://` fallback。未加云端同步、账号、上传、自动更新。
+
+### 验证
+`_verify_v576_import_copy.js` 真浏览器 **114 PASS / 0 FAIL**：
+- **反向差分逐字节**：把 v5.76 源按全部替换对反向还原（并剔除新增的 v5.76 头部段）后与 v5.75 源**逐字节相同**（662838 → 665691 bytes）⇒ 只动了声明的文案层与一处新增 CSS；`index.html` 仅为 v5.76 源的 canonical 变换。
+- **正文作用域旧串归零**：`新版` / `重新下载` / `保存回答备份` / `恢复回答备份` / `回答备份已关闭` / `🔒 加密保存` / `恢复已保存的内容` 全部 0。
+- **Markdown 负向断言**：`#importFile` 的 `accept` 仍为 `.json,application/json`（不含 `.md`）；正文中「导出 Markdown 文本」仅 1 处（导出入口）；剔除导出入口 / `exportMarkdown` 标识符 / `text/markdown` / 注释后正文再无可导入语义的 Markdown 表述。实测上传一份 `.md` 文件被拒，提示为「导入失败：无法识别这份文件，请选择加密备份文件或导出的 JSON 数据。」
+- **提示行**：文案精确；`fontSize` 12px；浅色 `rgb(90,102,94)` / 暗色 `rgb(138,150,142)`（均为 `--ink-faint`，无 opacity）；`aria-hidden="true"`；导入项 `aria-label` 以可见文字 `导入回答数据` 开头（WCAG 2.5.3）。
+- **两模式弹窗**：备份态标题 `备份当前回答` / 导入态 `导入回答数据`，eyebrow 均为 `Backup & Import`；`.backup-guide` 与 `#backupDesc` 均不含 `新版` 与 `Markdown`。
+- **闭环零回归**：填写 → 备份当前回答 → 换 browser context → 导入回答数据 → `life_vision` 一致、`stepIndex` 正常、停留在填写视图、`hasCelebrated` / `compassReturn` 未被覆盖；明文 JSON 导入仍可恢复；错误密码仍提示「密码不正确」；重复导入无异常；`导出 JSON 数据` 与 `导出 Markdown 文本` 均仍可用（md 仍为含 `## Compass Summary` 的报告格式）。
+- **版式**：390×844 打开菜单后 rect 为 left=100 / right=280 / width=180，**左右均不越出视口**，提示行正常折行（高 44px）；download 桌面 1280×900 与移动 390×844 均无横向溢出、主标题未动；下载版 `file://` 打开后菜单命名与提示行一致；`file://` fallback 正常；运行期无 pageerror / console.error。
+- 截图：`_shot_v576_menu_1440_light.png` / `_shot_v576_menu_1440_dark.png` / `_shot_v576_menu_390.png` / `_shot_v576_backup_modal.png`。
+- ⚠️ **待 Leah 决定（本轮刻意未动）**：`download.html` 主标题为「…**留下一份属于自己的**当前坐标。」，而 `index.html` 的 `.poster-title` 仍是「…看见自己的当前坐标。」——该不一致为 v5.75 遗留，验证脚本持续以 NOTES 提示。
+## v5.75（2026-10-04）— 回答备份 / 恢复的命名与说明修补
+
+**目标**：让用户自然理解「我可以把自己填写的回答保存成一份备份文件，以后可以再恢复」，而不是先理解「加密保存」这个技术概念。备份与自动保存要被区分开：自动保存 = 方便在当前环境回来继续；回答备份 = 一个可以带走、可以再导入的文件。
+
+### 修改前核验（以实际代码为准）
+- 更多菜单实际为：`恢复已保存的内容`（data-action=import）→ `🔒 加密保存`（data-action=backup）→ `高级导出` 分组 → `导出 Markdown 文本` / `导出 JSON 数据` → `清空记录`。
+- `importState()` 实际同时支持两种文件：`encrypted === true` 走密码解密流程，否则按明文 JSON 走 `applyImportedState()`。因此「恢复」文案不能只说加密。
+- `applyImportedState()` 只合并 `IMPORT_WHITELIST`（started / showSummary / stepIndex / theme / answers / deferred / hasCelebrated / lastSaved / version），并保留 `hasCelebrated`；`compassReturn` 不在白名单内，不会被导入覆盖。
+- 加密实现为 PBKDF2(150000, SHA-256) + AES-GCM，本轮一行未动。
+
+### 改动
+1. **更多菜单**：新增「回答备份」分组标签，两项改为 `保存回答备份` / `恢复回答备份`（保存在前，形成明显的一对），删除旧命名 `🔒 加密保存` 与 `恢复已保存的内容`。总结页快捷按钮同步为 `保存回答备份`。
+2. **备份弹窗**：标题 `保存回答备份`；说明重写为「把你目前填写的内容保存成一个备份文件，文件只会下载到你的设备，不会上传到任何服务器」+「以后换设备、换浏览器，或者重新下载了新版，都可以用这份文件把回答恢复回来」；密码降级为次级说明（「为了保护你的回答，设一个只有你知道的密码」）；新增一句区分自动保存与备份；按钮 `生成加密文件` → `保存备份文件`；eyebrow `Encrypted Save` → `Backup`。
+3. **恢复弹窗**：标题 `恢复回答备份`，按钮 `解密并恢复` → `恢复我的回答`，并新增提示「恢复后会覆盖当前页面里已有的填写内容」。
+4. **轻提醒两处**：Welcome 页 `hero-hint` 补「如果写下了比较重要的内容，也可以随时保存一份自己的回答备份」；页脚保存边界句改用「保存回答备份」。
+5. **提示语同步**：备份成功 `已保存回答备份文件，请连同密码一起收好`；导入成功 `已恢复你的回答`；导入失败 `无法识别这份文件，请选择回答备份或导出的 JSON 数据`；自动保存失败提示中的「加密保存」→「保存回答备份」。
+6. **`download.html`**：页尾备份提醒改为「可以在 Inner Compass 里用『保存回答备份』存成一个文件，以后需要时再恢复」，不解释加密实现；meta 与可见版本同步 v5.75。
+7. **`download.html` 全页文案改写（同日追加）**：主标题 →「慢慢整理自己的生活线索，留下一份属于自己的当前坐标。」；副标题 →「一份有结构的书写空间，无需安装，打开即可使用。」；「怎么选」微调为「想完整坐下来写一轮 / 只是想先试试看」；「关于保存」为两句（自动保存在当前设备和浏览器、换设备或浏览器不会自动出现；重要内容可保存一份回答备份，之后可再导入）；「在线版与下载版」收敛为一句「在线打开的是网页，下载到设备里的是一份独立文件，两种方式的填写记录不会自动同步。」；操作区新增区块标题「下载 Inner Compass」，按钮改为 `在线打开` / `下载到设备`（id 与事件绑定不变）；页尾精简为「下载得到的是一份空白的 Inner Compass 文件。在线版中已经填写的内容不会随文件一起下载。」（备份提醒已上移到「关于保存」，不重复）。
+   - 版式适配：说明区由两列网格改回单列（三段各自变长，窄列会把句子读断），移除只为两列服务的 620px 退化规则；新增 `.action-title`，沿用 `.guide h2` 的字号与色阶。
+   - ⚠️ 待定：新主标题与 `index.html` 的 `.poster-title`（仍为「…看见自己的当前坐标。」）不一致，是否同步由 Leah 决定（见 `_verify_v575_backup_ux.js` 的 NOTES）。
+
+### 明确没有修改
+`STATE_VERSION(7)` / `STORAGE_KEY` / `STEPS(7 阶段 18 题)` / answer keys / `IMPORT_WHITELIST` / `PM_ANCHORS` / `PM_TRAILS` / Map 与 Record / 问卷内容 / 数据结构 / 自动保存逻辑 / 加密实现（PBKDF2 + AES-GCM）/ JSON·Markdown·PDF 导出 / `file://` fallback。未加云端同步、账号、自动上传、自动更新。
+
+### 验证
+`_verify_v575_backup_ux.js` 真浏览器 **72 PASS / 0 FAIL**：反向替换逐字节证明只动了声明的文案层；完整闭环（填写 → 保存回答备份 → 换浏览器环境重新打开 → 恢复回答备份 → 回答一致、进度正常、停留在填写视图、保存状态正常）；重复导入无异常；明文 JSON 导入仍兼容；错误密码有明确提示；`hasCelebrated` 与 `compassReturn` 未被覆盖；download 页三层说明、新文案与按钮、桌面 1280×900 与移动 390×844 版式、下载空白 v5.75、`file://` fallback 均无回归。补丁可复现：从 `_pre_v575_download_copy.html` 重跑 `_apply_v575_download_copy.py`（9 处锚点替换）可逐字节重建当前 `download.html`（CRLF 385 行）。
+
+## v5.74（2026-10-04）— 公共入口使用方式与保存边界说明【历史】
+
+**目标**：不把 `download.html` 变成 FAQ 或技术文档，只用普通用户语言回答五件事：手机 / 电脑怎么选、回答保存在哪里、换浏览器或设备会怎样、在线版与下载版是什么关系、以后怎样取得最新版。
+
+### 修改前核验
+- `download.html`、`index.html`、版本源均为 v5.73；`STATE_VERSION = 7`，`STORAGE_KEY = "inner_compass_v5_3"`。
+- `index.html` 已有保存失败分流：空间不足与浏览器未允许本地保存会分别更新保存状态、播报并提示使用「加密保存」或高级导出；因此本轮不另造启动检测或存储机制。
+- 既有 JSON / Markdown / PDF 导出及 PBKDF2 + AES-GCM「加密保存 / 恢复」完整保留。
+- 上版记录复核：v5.73 实际已在 commit `2f5f931` 发布；v5.73 旧条目第 26 行的“尚未 commit / push”是发布前状态，现已过时，本轮保留历史原文不改写。
+
+### 改动
+1. **三层短说明**：把原三条概括说明重组为「怎么选 / 关于保存 / 在线版与下载版」。明确手机可直接在线使用；完整长写更推荐下载到电脑，但不把手机描述成错误方式。
+2. **保存边界**：说明回答由当前设备与浏览器自动保存；环境不允许时 Inner Compass 会在页面提示；内容不上传，换设备或浏览器不自动同步。（同日随 Leah 反馈微调：「关于保存」由一个三从句长句改为三个短句——存在哪 → 换环境看不到 → 不允许保存时页面会提醒；删去抽象的「当前环境」措辞。）
+3. **正确 mental model**：在线版指向项目当前发布版本；下载版是下载当时保存到设备上的独立文件；两种方式的记录不自动互相同步，项目更新后可回到下载页重新取得最新版。
+4. **空白文件与备份**：明确下载文件不携带在线回答、回答不会写回 HTML 文件本身；重要内容使用既有「加密保存」或导出留备份。
+5. **轻量版本信息**：下载页显示“当前下载版本 · v5.74”。
+6. **布局只做必要收口**：延续原卡片、颜色、按钮与字号体系；桌面说明区采用“怎么选横跨一行 + 保存 / 版本并排”，移动端回到单列；矮屏从顶部开始并允许完整滚动，避免内容增长后被垂直居中裁掉。
+7. **file:// fallback 修正**：保留“在线打开 / 尝试另存为文件”两条路径；本地双击 `download.html` 时，“在线打开”现在指向真实 Pages 地址，而不是相对的本地 `index.html`。
+8. **index.html 最小同步**：只升版本元数据并把页脚隐私说明改为“当前设备 + 当前浏览器 / 不跨环境同步 / 重要内容备份”。应用主脚本与 v5.73 逐字节一致。
+
+### 明确没有修改
+`STATE_VERSION(7)` / `STORAGE_KEY(inner_compass_v5_3)` / STEPS / answer keys / 问卷内容 / 数据结构 / saveState / loadState / Map / Record / JSON·Markdown·PDF 导出 / 加密保存与恢复 / 在线下载失败 fallback 均未改。
+
+### 验证
+- `_verify_v574_public_entry.js`：**53 PASS / 0 FAIL**，Chrome 131 真浏览器；无 pageerror / console.error。
+- 结构：v5.74 反向还原后与 v5.73 源文件逐字节一致（除声明的版本元数据、文件内记录与页脚文案）；发布件 `index.html` 仅比源文件多 canonical 收敛。
+- 路径：在线填写后同浏览器关闭重开可恢复；隔离浏览器环境无自动同步；下载文件为 v5.74 且不携带在线回答；当前 Chrome 的 `file://` 下载版可保存并在关闭重开后恢复；下载版填写不影响在线版；本地打开 `download.html` 的两条 fallback 正常。
+- 版式：390×844 与 1280×900 无横向溢出，卡片顶部可达、全部内容可滚动到达；移动页高 1047px（约 1.24 屏），桌面页高 970px（约 1.08 屏）。
+
+### 仍需人工兼容性抽查
+- 微信内置浏览器可能拦截或弱化 Blob 文件下载反馈，脚本无法可靠判断“浏览器是否真的把文件保存到下载目录”；页面已把手机主路径明确为在线打开，但发布后仍建议用一台真实手机点一次。
+- `file://` 的本地存储策略由浏览器实现决定。本轮 Chrome 131 实测可保存；仍建议用 Firefox 与 iOS Safari 各做一次“填写 → 完全关闭 → 重新打开”，若不允许保存，确认现有失败提示和「加密保存 / 导出」替代路径可理解。
+
+**产出**：`最终公开版inner_compass_v5_optimized_v5.74.html`（v5.73 原件保留）、`_apply_v574_public_entry.py`、`_sync_release_v574.py`、`_verify_v574_public_entry.js`；发布件 `index.html` / `download.html` 已本地收敛，尚未 commit / push。
+
+
+## v5.73（2026-10-04）— 全站文字对比度 / 可读性修补（WCAG 2.1 AA）【历史】
 
 **性质**：**只改 CSS 声明级 + 4 处 accent 底白字改走新令牌 + 一处行内 style**——零 DOM 结构 / 零 JS 逻辑 / 零数据模型 / 零 state 改动。`STATE_VERSION(7)` / `STORAGE_KEY` / STEPS(7 阶段 18 题) / 18 题 answer key / PM_ANCHORS / PM_TRAILS / buildMapNodes / buildMapRelationships / Map 相机交互 / 顶栏静态页头契约 / Record Mode / Export / 加密备份 / 无障碍语义全部未动。
 

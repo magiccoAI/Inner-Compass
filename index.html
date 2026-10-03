@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
-Camera Map（基于 v5.50 相机版设计）→ v5.73 最终版（当前正式交互 · 已取消试验标签；Welcome 海报主标题为 v5.53 定稿的「慢慢整理自己的生活线索，看见自己的当前坐标。」——该句在 v5.56 相机分叉时丢失，本版追回；顶栏为静态页头——静态放在页面顶部、随页面滚动移出视野，不吸顶、不悬浮；静止态 = 「全图」——整张地图按 fit 比例收拢进一屏并水平居中于内容列（transform-origin 50% 0），默认就能看到大部分 / 全部地标，且六个地标关于整页中线对称；「更多线索」=Anchor 内联展开全部剩余线索而非浮层；点击地标只做镜头推近（≈1.06×）并在相机窗口内平移缩放，绝不滚动页面；「← 全图」、点击地图空白或双击地标 = 相机退回全图取景，同样不滚动页面）
+Camera Map（基于 v5.50 相机版设计）→ v5.76 最终版（当前正式交互 · 已取消试验标签；Welcome 海报主标题为 v5.53 定稿的「慢慢整理自己的生活线索，看见自己的当前坐标。」——该句在 v5.56 相机分叉时丢失，本版追回；顶栏为静态页头——静态放在页面顶部、随页面滚动移出视野，不吸顶、不悬浮；静止态 = 「全图」——整张地图按 fit 比例收拢进一屏并水平居中于内容列（transform-origin 50% 0），默认就能看到大部分 / 全部地标，且六个地标关于整页中线对称；「更多线索」=Anchor 内联展开全部剩余线索而非浮层；点击地标只做镜头推近（≈1.06×）并在相机窗口内平移缩放，绝不滚动页面；「← 全图」、点击地图空白或双击地标 = 相机退回全图取景，同样不滚动页面）
   新增 Camera / World / Viewport 轻量相机层：点击「人生地点」→ 镜头轻移靠近（transform translate3d + scale，非 left/top）→ 复用既有 pmFocusAnchor / Focus / Related / Route；「更多线索」在 v5.59 起改为 Anchor 内联展开（预渲染 .pm-latent 直接显示），FIELD NOTE 产品概念与 Clue Layer 浮层已移除；完整阅读统一交给「深入阅读」（openAnchorPanorama）。
   不动：STATE_VERSION(7) / STORAGE_KEY / STEPS / 18 题 answer keys / PM_ANCHORS / PM_TRAILS / buildMapNodes / buildMapRelationships / findNodeRelations / Record Mode / Export / Experiment Feedback / 加密备份 / 无障碍语义。
   无新增依赖 / 图片 / Canvas / WebGL / Three.js / GSAP；单 rAF(pmTick) 驱动 camera easing；reduced-motion 下禁相机动画、立即到达。
@@ -8,9 +8,12 @@ Camera Map（基于 v5.50 相机版设计）→ v5.73 最终版（当前正式�
 <!--
 Original work created by Leah / 公众号作者@D小调片段记录
 Project: Inner Compass (内在罗盘)
-Version: v5.73
+Version: v5.76
 Created: 2026
 Updated: 2026-10-04
+v5.76 (2026-10-04)：备份 / 导入命名与说明修补（基于 v5.75）。① 命名：更多菜单分组「回答备份」→「我的回答」，两项「保存回答备份 / 恢复回答备份」→「备份当前回答 / 导入回答数据」（去掉「保存＋回答＋备份」三词堆叠）；导入项下方新增一句短说明「支持加密备份文件与导出的 JSON 数据」，并给该项加 aria-label（以可见文字开头，满足 WCAG 2.5.3 Label in Name）。② 文案严格对齐真实能力：importState() 只做 JSON.parse、#importFile 的 accept 仍是 .json,application/json ⇒ 可导入的只有「加密备份文件」与「导出 JSON 数据」两类；Markdown 是给人读的报告、无反向解析器，因此任何位置都不把 Markdown 写成可恢复来源，本轮也不新增 Markdown 导入。③ 删除全部「下载新版」暗示：静态说明「以后换设备、换浏览器，或者重新下载了新版…」→「以后换设备或换浏览器，都可以用这份文件把回答导入回来。」；备份描述「…在新版 Inner Compass 里恢复回来」→「…之后再导入回来」；download.html「更换设备、浏览器，或者重新下载文件时」→「更换设备或浏览器时」。④ 连带同步：弹窗标题（备份态「备份当前回答」/ 导入态「导入回答数据」）、总结页快捷按钮、页脚保存边界句、Welcome hero-hint、两条自动保存失败 Toast、导入失败 Toast、备份成功 Toast / announce、打开与关闭播报；导出态静态 HTML 与 JS 分支两处副本逐字保持一致。⑤ eyebrow「Backup」→「Backup &amp; Import」（同一弹窗服务两个入口）。⑥ 新增 CSS .more-item-hint（display:block / padding 0 14px 8px / font-size 12px / line-height 1.5 / color var(--ink-faint)）——用色阶不用 opacity，浅色 5.9:1、深色 5.4:1 均达 WCAG AA；中文 12px 满足「中文不得 <12px」。⑦ 顺带修正既有漏改：页脚「Self Discovery Framework v5.74」→ v5.76（v5.75 只升了 meta 与头部，漏了页脚）。⑧ 硬性边界：STATE_VERSION(7) / STORAGE_KEY / STEPS(7 阶段 18 题) / answer keys / IMPORT_WHITELIST / PM_ANCHORS / PM_TRAILS / Map / Record / 问卷内容 / 数据结构 / 自动保存逻辑 / 加密实现 / JSON·Markdown·PDF 导出 / 所有 data-action 与事件绑定 / file:// fallback 全部未动；未加云端同步、账号、自动更新。
+v5.75 (2026-10-04)：备份 / 恢复命名与说明修补（基于 v5.74）。① 用户可见命名：更多菜单「🔒 加密保存 / 恢复已保存的内容」→「保存回答备份 / 恢复回答备份」（并把两项归到新增的「回答备份」分组标签下，与「高级导出」区分）；总结页快捷按钮同步为「保存回答备份」。② 备份弹窗重写说明：先讲「把你填写的内容保存成一个文件、只下载到你的设备、以后可以恢复回来」，密码作为次级说明出现（「为了保护你的回答，这份备份可以设置密码」）；新增一句把「自动保存」与「回答备份」区分开——自动保存只留在当前设备和浏览器里方便回来继续，备份是一个可以带到其他设备 / 浏览器、也能在新版里恢复的文件。③ 恢复弹窗：标题「恢复回答备份」、按钮「恢复我的回答」，并提示恢复会覆盖当前页面里已有的填写内容。④ 轻提醒两处：Welcome 页 hero-hint 补「重要内容也可以保存一份自己的回答备份」；页脚保存边界句改用「保存回答备份」。⑤ Toast / announce 同步：保存成功「已保存回答备份文件，请连同密码一起收好」；导入失败提示改为「无法识别这份文件，请选择回答备份或导出的 JSON 数据」；自动保存失败提示中的「加密保存」一并改为「保存回答备份」。⑥ download.html：页尾备份提醒改为「用『保存回答备份』存成一个文件，以后需要时再恢复」，不做加密实现解释。⑦ 硬性边界：STATE_VERSION(7) / STORAGE_KEY / STEPS(7 阶段 18 题) / answer keys / PM_ANCHORS / PM_TRAILS / Map / Record / 问卷内容 / 数据结构 / 保存与导出逻辑 / 加密实现全部未动；未加云端同步、账号、自动更新。
+v5.74 (2026-10-04)：公共入口使用方式与保存边界说明（基于 v5.73）。① download.html 将原三条概括说明重组为「怎么选 / 关于保存 / 在线版与下载版」三个短层次：手机可直接在线试用，完整长写更推荐下载到电脑；回答由当前设备与浏览器自动保存，环境不允许时复用既有页面提示；换浏览器 / 换设备不自动同步；下载得到的是下载当时的独立空白文件，不携带在线版回答、不写回 HTML 文件本身；项目更新后可重新回到下载页获取最新版。② 增加轻量备份提醒：重要内容使用既有「加密保存」或导出留一份备份，不在下载页另造备份功能。③ index.html 只同步本条版本元数据与页脚保存边界文案；既有 saveState 异常分流、保存状态、JSON / Markdown / PDF 导出、PBKDF2 + AES-GCM 加密保存与恢复全部复用。④ 保留 download.html 在线 fetch 下载、下载失败打开在线版与 file:// fallback；并修正 file:// 场景：将「在线打开」指向真实发布页，「尝试另存为文件」仍保留原路径。⑤ 硬性边界：STATE_VERSION(7) / STORAGE_KEY / STEPS(7 阶段 18 题) / answer keys / PM_ANCHORS / PM_TRAILS / Map / Record / 数据结构 / 问卷内容 / 存储与导出逻辑全部未动。
 v5.72 (2026-10-04)：离开罗盘后的返回入口补全（基于 v5.71；用户反馈：从方向地图点地标「去这一题」进填写页时顶部有「← 我的罗盘」，但从罗盘页头「填写进度 → 继续填写」或「回到 Journey」进同一个填写页时却没有，补充完不知道怎么回地图，也不知道再点一次「生成我的 Compass」能回去）。① 根因：返回入口只由一个页面级 transient 标记 _journeyReturnFromMap 决定，而它只在map 的 [data-jump-key]「去这一题」这一条路径上被置位；填写进度抽屉的 .progress-jump-btn与罗盘页头「回到 Journey」都直接改 state.showSummary 进入填写视图、从不置位 —— 且它是内存标记，刷新页面后即便从地标进来也会消失（真机核对：置位点 1 处 / 清除点 2 处 / 进入填写视图的路径 4 条）。② 改法：改用持久化可选 state 字段 compassReturn（旧存档没有这个 key → 默认 false，无需迁移，STATE_VERSION 维持 7），并抽出统一动作 returnToCompass()（清标记 → 回罗盘 →按离开时的 currentCompassView 还原「方向地图 / 完整记录」→ 同步 mode-btn 选中态 → 滚到顶部 → 焦点落到罗盘标题 → announce），返回入口不再散落在各处各写一遍。③ 置位路径补全为四条：map 地标「去这一题」（内置进 jumpToQuestion）、填写进度抽屉「继续填写 / 回看 · 修改」、罗盘页头「回到 Journey」、（空地图「返回填写」反向清除，那时还没有罗盘可回）；清除路径两条：点「← 我的罗盘」、点「生成我的 Compass」。④ 刷新后仍然有效：标记落在 localStorage，中途关掉页面回来仍看得到返回入口。⑤ Welcome 页 CTA 同步：state.started && (showSummary || compassReturn) 时文案为「回到我的罗盘」，并且点击真的回罗盘 —— 此前 startJourneyBtn 只会 refresh() 回填写页，是「从填写页点开场说明就再也回不到地图」的第二个死角。⑥ 填写进度抽屉：已完成阶段也能进去改（按钮由「继续填写」改为「回看 / 修改」，此前 completion >= 1 时不渲染按钮、无法从罗盘回去修改已填内容）；底部加一行常驻说明「改完这一题后，点填写区上方的「← 我的罗盘」，就能回到地图看它长出来。」。⑦ 进入填写视图后统一滚到顶部：返回入口与到达提示都在填写区顶部，落在半页会看不见。⑧ 硬性边界：零结构 / 零数据模型 / 零新增 answer key / 零新增持久化类型（仅一个可缺省的 布尔导航标记）；STATE_VERSION(7) / STORAGE_KEY / STEPS(7 阶段 18 题) / 18 题 answer key / PM_ANCHORS / PM_TRAILS / buildMapNodes / buildMapRelationships / Map 相机交互（全图 / 推近 / 回全图）/ 顶栏静态页头契约 / Record Mode / Export / Experiment Feedback / 加密备份 / 无障碍语义全部未动。
 v5.73 (2026-10-04)：全站文字对比度 / 可读性审查修补（基于 v5.72）。**只改 CSS 声明级 + 一处行内 style + 版本号元数据**——零 DOM / 零 JS 逻辑 / 零数据模型 / 零结构改动；STATE_VERSION(7) / STORAGE_KEY / STEPS(7 阶段 18 题) / 18 题 answer key / PM_ANCHORS / PM_TRAILS / buildMapNodes / buildMapRelationships / Map 相机交互（全图 / 推近 / 回全图）/ 顶栏静态页头契约 / Record Mode / Export / Experiment Feedback / 加密备份 / 无障碍语义全部未动。
 ① 触发：Leah 反馈「非粗体正文」与「偏浅绿色文字」在各自背景上发虚、边缘发糊，最高亮度下仍不够清晰；按 WCAG 2.1 AA 逐项核算（正文 <18pt 且非粗体 ≥4.5:1；≥18pt 或 ≥14pt 粗体 ≥3:1；带 opacity 的文字一律先做 alpha 合成再算有效对比度）。
@@ -131,10 +134,10 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
 <head data-page-node-id="fsJHWicoCbU8EXL52OWWk8">
     <meta charset="UTF-8" data-page-node-id="o6k7vl6EEXyy6E8KBVVBbV">
     <meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="l34J60i0HpDC5pX2nzDAP9">
-    <meta name="description" content="内在罗盘 v5.73：以🪐行星意象为线索的自我探索 Journey。Map Mode 信息架构减法保留（L1 地标 → L2 更多线索 → L3 深入阅读 → Record）；静止态即「全图」——整张地图收拢进一屏，默认就能看到大部分 / 全部地标；点击地标只做镜头推近（≈1.06×）并在窗口内平移缩放，「← 全图」、点击空白或双击地标退回全图取景，全程绝不滚动页面。不替你下结论，只帮你看见自己写下的方向。" data-page-node-id="aqbMOwbMCxAwu7dNuKWGFD">
+    <meta name="description" content="内在罗盘 v5.76：以🪐行星意象为线索的自我探索 Journey。Map Mode 信息架构减法保留（L1 地标 → L2 更多线索 → L3 深入阅读 → Record）；静止态即「全图」——整张地图收拢进一屏，默认就能看到大部分 / 全部地标；点击地标只做镜头推近（≈1.06×）并在窗口内平移缩放，「← 全图」、点击空白或双击地标退回全图取景，全程绝不滚动页面。不替你下结论，只帮你看见自己写下的方向。" data-page-node-id="aqbMOwbMCxAwu7dNuKWGFD">
     <meta name="author" content="Leah / 公众号作者@D小调片段记录" data-page-node-id="AmW93bM1S5epwS8betUfsQ">
     <meta name="copyright" content="© 2026 Leah / 公众号作者@D小调片段记录. All rights reserved." data-page-node-id="GWB0buNZa2ESDHYRLlJ0Hg">
-    <meta name="version" content="v5.73" data-page-node-id="RmwIffWpkQilzimONxuS7W">
+    <meta name="version" content="v5.76" data-page-node-id="RmwIffWpkQilzimONxuS7W">
     <!-- 主题色会随亮/暗模式动态更新（见 setTheme） -->
     <meta name="theme-color" id="themeColorMeta" content="#f6f2eb" data-page-node-id="JE1p2dLsrY89y74ph79BPL">
     <link rel="canonical" href="https://magiccoai.github.io/Inner-Compass/" data-page-node-id="UDiTXY7L6TQDFqBW3PR3hk">
@@ -3098,6 +3101,15 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
             letter-spacing: .08em;
             color: var(--ink-faint);
         }
+        .more-item-hint {
+            display: block;
+            padding: 0 14px 8px;
+            font-size: 12px;
+            line-height: 1.5;
+            color: var(--ink-faint);
+            white-space: normal;
+            overflow-wrap: anywhere;
+        }
         .more-sep {
             border: none;
             border-top: 1px solid var(--line);
@@ -4681,8 +4693,10 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
                 <div class="more-menu-wrap" data-page-node-id="QLhC2mRlWybhCX6uy9cwAr">
                     <button class="ghost-btn more-btn" id="moreMenuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="更多操作" data-page-node-id="GaRJX6O1jvwMi22Sf5Wi3t">⋯ 更多</button>
                     <div class="more-menu" id="moreMenu" role="menu" aria-hidden="true" data-page-node-id="Hux13M5lVdOWN95TmMVgJa">
-                        <button class="more-item" data-action="import" role="menuitem" type="button" data-page-node-id="7Fh5H6C83jrSWAM4okCLaw">恢复已保存的内容</button>
-                        <button class="more-item" data-action="backup" role="menuitem" type="button" data-page-node-id="IAn7LCHVvkbRouDxufTOEA">🔒 加密保存</button>
+                        <span class="more-menu-label" data-page-node-id="V5p75BackupGroup0001">我的回答</span>
+                        <button class="more-item" data-action="backup" role="menuitem" type="button" data-page-node-id="IAn7LCHVvkbRouDxufTOEA">备份当前回答</button>
+                        <button class="more-item" data-action="import" role="menuitem" type="button" aria-label="导入回答数据：支持加密备份文件与导出的 JSON 数据" data-page-node-id="7Fh5H6C83jrSWAM4okCLaw">导入回答数据</button>
+                        <span class="more-item-hint" aria-hidden="true" data-page-node-id="V5p76ImportHint0001">支持加密备份文件与导出的 JSON 数据</span>
                         <hr class="more-sep" aria-hidden="true" data-page-node-id="2IVH9wyK9ZbXtjmuJBZd8g">
                         <span class="more-menu-label" data-page-node-id="O8LuBsk8vv6BopGOy360QY">高级导出</span>
                         <button class="more-item" data-action="exportMd" role="menuitem" type="button" data-page-node-id="3eJNo9Y3cL6S0Kpkt53cSp">导出 Markdown 文本</button>
@@ -4715,7 +4729,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
                     <div data-page-node-id="1wICFzrOyXLBBHcqSKlWGN">
                         <div class="hero-footer" data-page-node-id="z2rVleB629OV53RBp3grBY">
                             <button class="primary-btn" id="startJourneyBtn" type="button" data-page-node-id="jD9aVfrpxWNMwKE7QFKudU">开始这一轮探索</button>
-                            <span class="hero-hint" data-page-node-id="V3MxdYX3Th4JMJJdwq2TqU">所有记录只保存在你的浏览器里，不会上传。你可以随时回来继续。</span>
+                            <span class="hero-hint" data-page-node-id="V3MxdYX3Th4JMJJdwq2TqU">所有记录只保存在你的浏览器里，不会上传。你可以随时回来继续；如果写下了比较重要的内容，也可以随时备份一份自己的回答。</span>
                         </div>
                     </div>
                 </div>
@@ -4790,7 +4804,7 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
                     <div class="compass-meta" id="compassReportMeta" data-page-node-id="v3dCbTUcCH7NI1mbPUHh1d"></div>
                     <div class="compass-actions" data-page-node-id="pg36U2mth5wvs0XNeGkPxC">
                         <button class="primary-btn" id="downloadSummaryBtn" type="button" data-page-node-id="J8NGlRifQbIe9DKwDf8VxJ">下载我的完整记录（PDF）</button>
-                        <button class="soft-btn" id="backupFromSummaryBtn" type="button" data-page-node-id="Nis4eUeK3lS9vhBUZ43TOH">🔒 加密保存</button>
+                        <button class="soft-btn" id="backupFromSummaryBtn" type="button" data-page-node-id="Nis4eUeK3lS9vhBUZ43TOH">备份当前回答</button>
                     </div>
                 </div>
             </div>
@@ -4814,27 +4828,28 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
         <div class="modal-card backup-card" data-page-node-id="B0oQYoldwA8kGtMzDeEl7p">
             <div class="modal-head" data-page-node-id="7SwTBkaoyZU8ePT24zceyb">
                 <div data-page-node-id="d4NH1poEau6zYrabG4x1Q8">
-                    <div class="eyebrow" data-page-node-id="pFDjgCuXEmd0jhSkLoxlax">Encrypted Save</div>
-                    <h3 id="backupModalTitle" data-page-node-id="2VQF8quDIHjJZJR7AilPm6">加密保存</h3>
+                    <div class="eyebrow" data-page-node-id="pFDjgCuXEmd0jhSkLoxlax">Backup &amp; Import</div>
+                    <h3 id="backupModalTitle" data-page-node-id="2VQF8quDIHjJZJR7AilPm6">备份当前回答</h3>
                 </div>
-                <button class="modal-close" id="closeBackupBtn" type="button" aria-label="关闭加密保存" data-page-node-id="jJCMRZkcSCxV0krfW6aAXo">×</button>
+                <button class="modal-close" id="closeBackupBtn" type="button" aria-label="关闭备份窗口" data-page-node-id="jJCMRZkcSCxV0krfW6aAXo">×</button>
             </div>
             <div class="backup-guide" data-page-node-id="0WRvx8JW25tg5b09SNreFi">
-                <p data-page-node-id="GHEUwJV84KGwABfnWs47qQ"><strong data-page-node-id="EXMkMV6BozbTZVR59gau95">这是什么？</strong> 生成一个密码保护文件，未来可通过本页面恢复全部回答。它不是云端备份，文件只会下载到你的设备。</p>
+                <p data-page-node-id="GHEUwJV84KGwABfnWs47qQ"><strong data-page-node-id="EXMkMV6BozbTZVR59gau95">这是什么？</strong> 把你目前填写的内容保存成一个备份文件。文件只会下载到你的设备，不会上传到任何服务器。</p>
+                <p data-page-node-id="V5p75BackupLead0001">以后换设备或换浏览器，都可以用这份文件把回答导入回来。</p>
                 <ol data-page-node-id="61F1scEvuqS50jpCGh5fvk">
-                    <li data-page-node-id="wCSqY9A8bABs1j0WBzF1U4">设一个只有你知道的密码（至少 4 位）</li>
-                    <li data-page-node-id="v0bMKE7U8IkZ0eeTJjstGY">点「生成加密文件」，浏览器会在本地加密并下载文件</li>
-                    <li data-page-node-id="RQyUfS1ZptDDicMjYmGiCU">把这个文件和密码一起收好（比如存在你自己的云盘里）</li>
-                    <li data-page-node-id="EpiUR1Q0EO4ROBGAME8kA2">以后换设备时，点工具栏里的「导入」→ 选这个文件 → 输入密码，就能安全恢复</li>
+                    <li data-page-node-id="wCSqY9A8bABs1j0WBzF1U4">为了保护你的回答，设一个只有你知道的密码（至少 4 位）</li>
+                    <li data-page-node-id="v0bMKE7U8IkZ0eeTJjstGY">点「保存备份文件」，浏览器会把你的回答存成一个文件下载下来</li>
+                    <li data-page-node-id="RQyUfS1ZptDDicMjYmGiCU">把文件和密码一起收好（比如存在你自己的云盘里）</li>
+                    <li data-page-node-id="EpiUR1Q0EO4ROBGAME8kA2">以后用「导入回答数据」选中这个文件，输入密码，就能接着之前的内容继续</li>
                 </ol>
                 <p class="backup-warn" data-page-node-id="lPC5pG7FDRHrNmVVfNJKbA">⚠️ 密码只有你知道，忘记就无法恢复，因为它从不经过任何服务器。</p>
             </div>
-            <p class="backup-desc" id="backupDesc" data-page-node-id="XWf805kQkB5qWGtMngyGVK">适合希望额外保护隐私、或在另一台设备恢复填写时使用。加密在浏览器里完成，内容不会上传。</p>
-            <input type="password" id="backupPassword" class="custom-add-input backup-input" autocomplete="off" placeholder="输入备份密码（至少 4 位）" aria-label="备份密码" data-page-node-id="POjleFgIaVfzYvaG45m1O7">
+            <p class="backup-desc" id="backupDesc" data-page-node-id="XWf805kQkB5qWGtMngyGVK">自动保存只留在当前设备和浏览器里，方便你回来继续填写；这份备份是一个文件，可以带到其他设备或浏览器，之后再导入回来。</p>
+            <input type="password" id="backupPassword" class="custom-add-input backup-input" autocomplete="off" placeholder="设置备份密码（至少 4 位）" aria-label="备份密码" data-page-node-id="POjleFgIaVfzYvaG45m1O7">
             <div class="summary-actions" data-page-node-id="znVLKQUvdcFS9KDyALbJy7">
-                <button class="primary-btn" id="backupConfirmBtn" type="button" data-page-node-id="h7HoX6KXeUnMeXsX1KcTl6">生成加密文件</button>
+                <button class="primary-btn" id="backupConfirmBtn" type="button" data-page-node-id="h7HoX6KXeUnMeXsX1KcTl6">保存备份文件</button>
             </div>
-            <p class="backup-note" data-page-node-id="AuBBZzlDzaIxPeUWhZNYaK">请妥善记住密码。忘记密码将无法恢复这份备份，我们也无法帮你找回——因为它从不经过服务器。</p>
+            <p class="backup-note" data-page-node-id="AuBBZzlDzaIxPeUWhZNYaK">请记住这个密码。忘记密码就无法恢复这份备份——它从不经过任何服务器，我们也无法帮你找回。</p>
         </div>
     </div>
 
@@ -5450,11 +5465,11 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
                     if (isQuota) {
                         updateSaveState("保存失败，空间不足", false);
                         announce("保存失败：浏览器本地存储空间不足");
-                        showToast("保存失败：浏览器本地存储空间不足，建议使用“加密保存”或高级导出。");
+                        showToast("保存失败：浏览器本地存储空间不足，建议使用“备份当前回答”或高级导出。");
                     } else {
                         updateSaveState("保存失败，未允许本地保存", false);
                         announce("保存失败：当前浏览器未允许本地保存");
-                        showToast("保存失败：当前浏览器未允许本地保存，请使用“加密保存”或高级导出。");
+                        showToast("保存失败：当前浏览器未允许本地保存，请使用“备份当前回答”或高级导出。");
                     }
                 }
             };
@@ -9055,8 +9070,8 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
             clampValueMaxSelections(true);
             saveState();
             refresh();
-            showToast("导入成功，已恢复你的记录");
-            announce("导入成功");
+            showToast("导入成功，已恢复你的回答");
+            announce("导入成功，已恢复你的回答");
             if (state.showSummary) {
                 renderSummary();
                 switchView("summary");
@@ -9080,8 +9095,8 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
                     applyImportedState(incoming);
                 } catch (error) {
                     // 用轻量 Toast 替代原生 alert（第 20 项）
-                    showToast("导入失败：文件格式不正确。");
-                    announce("导入失败：文件格式不正确");
+                    showToast("导入失败：无法识别这份文件，请选择加密备份文件或导出的 JSON 数据。");
+                    announce("导入失败：无法识别这份文件");
                 }
             };
             reader.readAsText(file);
@@ -9261,26 +9276,26 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
             const passwordInput = document.getElementById("backupPassword");
             const guide = modal.querySelector(".backup-guide");
             if (mode === "import") {
-                title.textContent = "恢复加密保存";
-                if (guide) guide.innerHTML = '<p><strong>如何恢复？</strong> 这是一个加密保存文件。输入当时设置的密码，浏览器会在本地解密并恢复你之前的所有回答。</p><p class="backup-warn">⚠️ 密码错误将无法解开。文件没有经过任何服务器，只有你自己能恢复。</p>';
-                desc.textContent = "";
-                confirmBtn.textContent = "解密并恢复";
+                title.textContent = "导入回答数据";
+                if (guide) guide.innerHTML = '<p><strong>如何恢复？</strong> 这是一份加密备份文件。输入当时设置的密码，浏览器会在本地解开文件，恢复你之前的全部回答。</p><p class="backup-warn">⚠️ 密码错误将无法恢复。文件没有经过任何服务器，只有你自己能恢复。</p>';
+                desc.textContent = "恢复后会覆盖当前页面里已有的填写内容。如果现在的内容还没备份，可以先关掉这里，先做一次「备份当前回答」。";
+                confirmBtn.textContent = "恢复我的回答";
                 passwordInput.placeholder = "输入备份时设置的密码";
             } else {
-                title.textContent = "加密保存";
-                if (guide) guide.innerHTML = '<p><strong>这是什么？</strong> 生成一个密码保护文件，未来可通过本页面恢复全部回答。它不是云端备份，文件只会下载到你的设备。</p><ol><li>设一个只有你知道的密码（至少 4 位）</li><li>点「生成加密文件」，浏览器会在本地加密并下载文件</li><li>把这个文件和密码一起收好（比如存在你自己的云盘里）</li><li>以后换设备时，点工具栏里的「恢复已保存的内容」→ 选这个文件 → 输入密码，就能安全恢复</li></ol><p class="backup-warn">⚠️ 密码只有你知道，忘记就无法恢复，因为它从不经过任何服务器。</p>';
-                desc.textContent = "适合希望额外保护隐私、或在另一台设备恢复填写时使用。加密在浏览器里完成，内容不会上传。";
-                confirmBtn.textContent = "生成加密文件";
-                passwordInput.placeholder = "输入备份密码（至少 4 位）";
+                title.textContent = "备份当前回答";
+                if (guide) guide.innerHTML = '<p><strong>这是什么？</strong> 把你目前填写的内容保存成一个备份文件。文件只会下载到你的设备，不会上传到任何服务器。</p><p>以后换设备或换浏览器，都可以用这份文件把回答导入回来。</p><ol><li>为了保护你的回答，设一个只有你知道的密码（至少 4 位）</li><li>点「保存备份文件」，浏览器会把你的回答存成一个文件下载下来</li><li>把文件和密码一起收好（比如存在你自己的云盘里）</li><li>以后用「导入回答数据」选中这个文件，输入密码，就能接着之前的内容继续</li></ol><p class="backup-warn">⚠️ 密码只有你知道，忘记就无法恢复，因为它从不经过任何服务器。</p>';
+                desc.textContent = "自动保存只留在当前设备和浏览器里，方便你回来继续填写；这份备份是一个文件，可以带到其他设备或浏览器，之后再导入回来。";
+                confirmBtn.textContent = "保存备份文件";
+                passwordInput.placeholder = "设置备份密码（至少 4 位）";
             }
             passwordInput.value = "";
-            openModal(modal, "#backupPassword", mode === "import" ? "恢复加密保存" : "加密保存已打开");
+            openModal(modal, "#backupPassword", mode === "import" ? "导入回答数据" : "备份当前回答已打开");
         }
 
         function closeBackupModal() {
             const passwordInput = document.getElementById("backupPassword");
             if (passwordInput) passwordInput.value = "";
-            closeModal(document.getElementById("backupModal"), "加密保存已关闭");
+            closeModal(document.getElementById("backupModal"), "备份窗口已关闭");
         }
 
         async function deriveBackupKey(password, saltBuf) {
@@ -9313,8 +9328,8 @@ v5.28 (2026-09-02): Map Mode 视觉语言重构为 Personal Cartography / 个人
                 data: bufToB64(cipher)
             };
             downloadFile(JSON.stringify(payload), `inner_compass_v5_backup_${formatDateLocal(new Date())}.json`, "application/json");
-            showToast("已生成加密保存文件，请妥善保存文件和密码");
-            announce("已生成加密保存文件");
+            showToast("已保存备份文件，请连同密码一起收好");
+            announce("已生成备份文件");
         }
 
         async function decryptBackupPayload(payload, password) {
@@ -11500,8 +11515,8 @@ Inner Compass 不是替填写者找到职业答案，而是让一个模糊的「
         document.addEventListener("DOMContentLoaded", init);
     </script>
     <footer class="page-footer" data-page-node-id="qI2TjVVR1ceVWvmJrsPltG">
-        <div data-page-node-id="gkdLI0X0LOfXzFfvDxNvjm">Created by Leah / 公众号<a href="https://mp.weixin.qq.com" target="_blank" rel="noopener" data-page-node-id="IHLdmqOo5L9rHtBJnIuMQ1">@D小调片段记录</a> · Self Discovery Framework v5.73</div>
-        <div data-page-node-id="BTqcCM7Bu1caEvWSHLrHS3">所有数据仅保存在当前设备，不会上传至服务器。如在公共设备上使用，请勿留存私人记录。</div>
+        <div data-page-node-id="gkdLI0X0LOfXzFfvDxNvjm">Created by Leah / 公众号<a href="https://mp.weixin.qq.com" target="_blank" rel="noopener" data-page-node-id="IHLdmqOo5L9rHtBJnIuMQ1">@D小调片段记录</a> · Self Discovery Framework v5.76</div>
+        <div data-page-node-id="BTqcCM7Bu1caEvWSHLrHS3">自动保存由当前使用的设备与浏览器管理；回答不会上传至服务器，也不会跨设备或浏览器自动同步。重要内容可以用「备份当前回答」存成一个文件，以后再导入恢复。</div>
     </footer>
 </body>
 </html>
